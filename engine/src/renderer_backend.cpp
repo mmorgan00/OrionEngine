@@ -51,6 +51,11 @@ bool renderer_backend_initialize() {
     std::cout << '\t' << extension << '\n';
   }
 
+#ifdef NDEBUG
+
+  extensionNames.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+#endif
+
   createInfo.enabledExtensionCount = extensionCount;
   createInfo.ppEnabledExtensionNames = extensionNames.data();
 
@@ -113,13 +118,12 @@ bool checkValidationLayerSupport(){
   std::cout << "Available layer count: " << layerCount << "\n";
   std::vector<VkLayerProperties> availableLayers(layerCount);
   vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-  std::cout << "Available layers: " << availableLayers.data() << "\n";
+  std::cout << "Available layers: \n";
 
   for(const char* layerName: validationLayers) {
     bool layerFound = false;
+    std::cout << "Finding " << layerName << "\n";
     for (const auto& layerProperties : availableLayers) {
-      std::cout << layerProperties.layerName << "\n";
-      std::cout << layerName << "\n";
       if (strcmp(layerName, layerProperties.layerName) == 0) {
         layerFound = true;
         break;
