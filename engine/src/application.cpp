@@ -1,7 +1,6 @@
 
 #include "engine/application.h"
 
-#include "engine/platform.h"
 
 #define GLFW_INCLUDE_VULKAN
  

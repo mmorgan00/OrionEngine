@@ -3,6 +3,7 @@
 #define GLFW_INCLUDE_VULKAN
 
 #include "engine/platform.h"
+#include "engine/application.h"
 
 #include <stdio.h>
 #include <iostream>
@@ -13,7 +14,7 @@ static platform_state* plat_state;
 bool platform_initialize(){
   plat_state = (platform_state*)malloc(sizeof(platform_state));
 
-  application_initizlie(plat_state);
+  application_initialize(plat_state);
   if(!glfwInit()){
     return -1;
   };
