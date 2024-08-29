@@ -65,13 +65,16 @@ bool renderer_backend_initialize() {
 
 
   if(!check_validation_layer_support()){
-    OE_LOG(LOG_LEVEL_FATAL, "Failed to get validation layers!");
+    OE_LOG(LOG_LEVEL_FATAL, "Failed to get validation layers!\n");
     return false;
   }
 
+  if(vkCreateInstance(&createInfo, nullptr, &context.instance) != VK_SUCCESS) {
+    OE_LOG(LOG_LEVEL_FATAL, "Failed to create vulkan instance!");
+    return false;
+  }
   // Debugger
-#ifdef NDEBUG
-  OE_LOG(LOG_LEVEL_INFO,"Creating Vulkan debugger...\n");
+#ifndef NDEBUG
 
   uint32_t log_severity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
     VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
@@ -80,7 +83,6 @@ bool renderer_backend_initialize() {
 
   VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
     VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
-
   debug_create_info.messageSeverity = log_severity;
   debug_create_info.messageType =
     VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
@@ -88,24 +90,13 @@ bool renderer_backend_initialize() {
     VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
   debug_create_info.pfnUserCallback = vk_debug_callback;
 
-  VkResult result = vkCreateInstance(&createInfo, nullptr, &context.instance);
-  if(result != VK_SUCCESS){
-    OE_LOG(LOG_LEVEL_FATAL, "Failed to initialize Vulkan instance!\n");
-  } 
+  PFN_vkCreateDebugUtilsMessengerEXT func =
+    (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+        context.instance, "vkCreateDebugUtilsMessengerEXT");
+  OE_ASSERT_MSG(func, "Failed to create debug messenger!");
+  VK_CHECK(func(context.instance, &debug_create_info, nullptr, &context.debug_messenger));
 
-
-  PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-      context.instance, "vkCreateDebugUtilsMessengerEXT");
-  if(func == nullptr) {
-    OE_LOG(LOG_LEVEL_ERROR, "Failed to create debug messenger");
-    return false;
-  }
-  if(VK_SUCCESS != func(context.instance, &debug_create_info, nullptr, &context.debug_messenger)){
-
-  }
-
-  OE_LOG(LOG_LEVEL_DEBUG,"Vulkan debugger created.\n");
-
+  OE_LOG(LOG_LEVEL_DEBUG, "Vulkan debugger created.\n");
   createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debug_create_info;
 #endif 
 
@@ -114,10 +105,10 @@ bool renderer_backend_initialize() {
 
 void renderer_backend_shutdown(){ 
 
-#ifdef NDEBUG
+#ifndef NDEBUG
   // Destroy debug messenger
-  auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(context.instance, "vkDestroyDebugUtilsMessengerEXT");
-  func(context.instance, context.debug_messenger, nullptr);
+   auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(context.instance, "vkDestroyDebugUtilsMessengerEXT");
+   func(context.instance, context.debug_messenger, nullptr);
 
 #endif
   // Opposite order of creation
@@ -130,7 +121,7 @@ bool check_validation_layer_support(){
   // Validation layers.
   const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
-#ifdef NDEBUG
+#ifndef NDEBUG
   OE_LOG(LOG_LEVEL_DEBUG, "Validation layers enabled. Enumerating...\n");
 
   uint32_t layerCount;

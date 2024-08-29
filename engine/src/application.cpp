@@ -21,5 +21,5 @@ bool application_run() {
   while(!glfwWindowShouldClose(plat_state->window)) {
     glfwPollEvents();
   }
-  return true;
+  return false;
 }

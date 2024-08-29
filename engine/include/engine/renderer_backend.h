@@ -1,9 +1,13 @@
+#ifndef RENDERER_BACKEND_H
+#define RENDERER_BACKEND_H
+
+#include "engine/asserts.h"
 
 #include <vulkan/vulkan.h>
 
 typedef struct backend_context {
   VkInstance instance;
-#ifdef NDEBUG
+#ifndef NDEBUG
   VkDebugUtilsMessengerEXT debug_messenger;
 #endif
 
@@ -12,3 +16,11 @@ typedef struct backend_context {
 bool renderer_backend_initialize();
 
 void renderer_backend_shutdown();
+
+#define VK_CHECK(expr) \
+    do { \
+        VkResult result = (expr); \
+        OE_ASSERT(result == VK_SUCCESS); \
+    } while(0)
+
+#endif

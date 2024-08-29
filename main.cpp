@@ -13,4 +13,6 @@ int main() {
   renderer_initialize();
   while(application_run()) {
   }
+  renderer_shutdown();
+  platform_shutdown();
 }

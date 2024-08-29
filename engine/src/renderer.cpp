@@ -13,3 +13,8 @@ bool renderer_initialize() {
   return false;
   
 }
+
+
+void renderer_shutdown() {
+  renderer_backend_shutdown();
+}

@@ -1,6 +1,6 @@
 
 #include "engine/logger.h"
-
+#include "engine/asserts.h"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -17,8 +17,8 @@ void OE_LOG(log_level level, const char* fmt_str, ...) {
       "[TRACE]:   ", 
 #ifdef NDEBUG
       "[VK_ERROR]:"
-    };
 #endif
+};
 
     // TODO: Color output?
     printf("%s", level_strings[level]);
@@ -29,4 +29,11 @@ void OE_LOG(log_level level, const char* fmt_str, ...) {
   vprintf(fmt_str, args);
 
   va_end(args); // Clean up the va_list
+}
+
+void report_assertion_failed(const char *expression, const char *message,
+                             const char *file, int line) {
+  OE_LOG(LOG_LEVEL_FATAL,
+             "Assertion failure: %s, message: '%s', in file: %s, line: %d\n",
+             expression, message, file, line);
 }
