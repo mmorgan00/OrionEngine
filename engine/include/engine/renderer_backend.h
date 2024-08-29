@@ -3,6 +3,10 @@
 
 typedef struct backend_context {
   VkInstance instance;
+#ifdef NDEBUG
+  VkDebugUtilsMessengerEXT debug_messenger;
+#endif
+
 } backend_context;
 
 bool renderer_backend_initialize();

@@ -4,6 +4,7 @@
 
 #include "engine/platform.h"
 #include "engine/application.h"
+#include "engine/logger.h"
 
 #include <stdio.h>
 #include <iostream>
@@ -40,8 +41,7 @@ bool platform_initialize(){
   uint32_t extensionCount = 0;
   vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 
-  std::cout << extensionCount << std::endl;
-  std::cout << "Platform Initialized!" << std::endl;
+  OE_LOG(LOG_LEVEL_INFO, "Platform Initialized!\n");
 
   /*while(!glfwWindowShouldClose(window))*/
   /*{*/

@@ -1,17 +1,15 @@
 #include "engine/renderer.h"
 
 #include "engine/renderer_backend.h"
+#include "engine/logger.h"
 
-//TODO: remove
-#include <stdio.h>
-#include <iostream>
-
-void renderer_initialize() {
+bool renderer_initialize() {
     
   if(renderer_backend_initialize()){
-    std::cout << "Renderer initialized" << std::endl;
-    return;
+    OE_LOG(LOG_LEVEL_INFO, "Renderer initialized\n");
+    return true;
   }
-  std::cout << "Error initializing renderer" << std::endl;
+  OE_LOG(LOG_LEVEL_FATAL, "Error initializing renderer\n");
+  return false;
   
 }
