@@ -2,6 +2,8 @@
 #include "engine/renderer_backend.h"
 #include "engine/logger.h"
 
+#include "engine/vulkan/vulkan_device.h"
+
 #include <stdio.h>
 #include <iostream>
 #include <vector>
@@ -99,6 +101,9 @@ bool renderer_backend_initialize() {
   OE_LOG(LOG_LEVEL_DEBUG, "Vulkan debugger created.\n");
   createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debug_create_info;
 #endif 
+   
+  // Device
+  vulkan_device_create(&context);
 
   return true; 
 } 
@@ -160,7 +165,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
     const VkDebugUtilsMessengerCallbackDataEXT *callback_data, void *user_data) {
 
   // TODO: Check Error level for verbosity reasons
-  OE_LOG(LOG_LEVEL_VK_ERROR, "Validation error: %s", callback_data->pMessage);
+  OE_LOG(LOG_LEVEL_DEBUG, "%s\n", callback_data->pMessage);
   return false;
 }
 

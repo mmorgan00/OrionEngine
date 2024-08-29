@@ -8,8 +8,11 @@
 
 // Disable debug and trace logging for release builds.
 #ifndef NDEBUG
-#define LOG_DEBUG_ENABLED 0
-#define LOG_TRACE_ENABLED 0
+    #undef LOG_DEBUG_ENABLED
+    #define LOG_DEBUG_ENABLED 0
+
+    #undef LOG_TRACE_ENABLED
+    #define LOG_TRACE_ENABLED 0
 #endif
 
 typedef enum log_level {
