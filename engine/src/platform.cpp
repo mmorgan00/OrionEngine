@@ -41,7 +41,7 @@ bool platform_initialize(){
   uint32_t extensionCount = 0;
   vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 
-  OE_LOG(LOG_LEVEL_INFO, "Platform Initialized!\n");
+  OE_LOG(LOG_LEVEL_INFO, "Platform Initialized!");
 
   /*while(!glfwWindowShouldClose(window))*/
   /*{*/

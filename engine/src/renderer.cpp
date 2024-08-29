@@ -6,10 +6,10 @@
 bool renderer_initialize() {
     
   if(renderer_backend_initialize()){
-    OE_LOG(LOG_LEVEL_INFO, "Renderer initialized\n");
+    OE_LOG(LOG_LEVEL_INFO, "Renderer initialized");
     return true;
   }
-  OE_LOG(LOG_LEVEL_FATAL, "Error initializing renderer\n");
+  OE_LOG(LOG_LEVEL_FATAL, "Error initializing renderer");
   return false;
   
 }

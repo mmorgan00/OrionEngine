@@ -29,11 +29,12 @@ void OE_LOG(log_level level, const char* fmt_str, ...) {
   vprintf(fmt_str, args);
 
   va_end(args); // Clean up the va_list
+  printf("\n");
 }
 
 void report_assertion_failed(const char *expression, const char *message,
                              const char *file, int line) {
   OE_LOG(LOG_LEVEL_FATAL,
-             "Assertion failure: %s, message: '%s', in file: %s, line: %d\n",
+             "Assertion failure: %s, message: '%s', in file: %s, line: %d",
              expression, message, file, line);
 }

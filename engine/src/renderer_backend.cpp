@@ -46,10 +46,10 @@ bool renderer_backend_initialize() {
   for (const auto& extension : extensions) {
     extensionNames.push_back(extension.extensionName); // Add the extension name to the vector
   }
-  OE_LOG(LOG_LEVEL_DEBUG, "available extensions:\n");
+  OE_LOG(LOG_LEVEL_DEBUG, "available extensions:");
 
   for (const auto& extension : extensionNames) {
-    OE_LOG(LOG_LEVEL_DEBUG, "\t%s\n", extension);
+    OE_LOG(LOG_LEVEL_DEBUG, "\t%s", extension);
   }
   
   // This is initialized here, if in debug mode they will be overwritten
@@ -67,7 +67,7 @@ bool renderer_backend_initialize() {
 
 
   if(!check_validation_layer_support()){
-    OE_LOG(LOG_LEVEL_FATAL, "Failed to get validation layers!\n");
+    OE_LOG(LOG_LEVEL_FATAL, "Failed to get validation layers!");
     return false;
   }
 
@@ -98,7 +98,7 @@ bool renderer_backend_initialize() {
   OE_ASSERT_MSG(func, "Failed to create debug messenger!");
   VK_CHECK(func(context.instance, &debug_create_info, nullptr, &context.debug_messenger));
 
-  OE_LOG(LOG_LEVEL_DEBUG, "Vulkan debugger created.\n");
+  OE_LOG(LOG_LEVEL_DEBUG, "Vulkan debugger created.");
   createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debug_create_info;
 #endif 
    
@@ -127,16 +127,16 @@ bool check_validation_layer_support(){
   const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
 #ifndef NDEBUG
-  OE_LOG(LOG_LEVEL_DEBUG, "Validation layers enabled. Enumerating...\n");
+  OE_LOG(LOG_LEVEL_DEBUG, "Validation layers enabled. Enumerating...");
 
   uint32_t layerCount;
   vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-  OE_LOG(LOG_LEVEL_DEBUG, "Available layer count: %d\n", layerCount);
+  OE_LOG(LOG_LEVEL_DEBUG, "Available layer count: %d", layerCount);
   std::vector<VkLayerProperties> availableLayers(layerCount);
   vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-  OE_LOG(LOG_LEVEL_DEBUG, "Available layers: \n");
+  OE_LOG(LOG_LEVEL_DEBUG, "Available layers:");
   for (const auto& layerProperties : availableLayers) {
-    OE_LOG(LOG_LEVEL_DEBUG, "\t%s\n", layerProperties.layerName);
+    OE_LOG(LOG_LEVEL_DEBUG, "\t%s", layerProperties.layerName);
   }
 
   for(const char* layerName: validationLayers) {
@@ -144,7 +144,7 @@ bool check_validation_layer_support(){
     for (const auto& layerProperties : availableLayers) {
       if (strcmp(layerName, layerProperties.layerName) == 0) {
         layerFound = true;
-        OE_LOG(LOG_LEVEL_DEBUG, "%s layer found\n", layerName);
+        OE_LOG(LOG_LEVEL_DEBUG, "%s layer found", layerName);
         break;
       }
 
@@ -153,7 +153,7 @@ bool check_validation_layer_support(){
       return false;
     }
   }
-  OE_LOG(LOG_LEVEL_DEBUG, "All required validation layers are present.\n");
+  OE_LOG(LOG_LEVEL_DEBUG, "All required validation layers are present.");
 
 #endif
   return true;
@@ -165,7 +165,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
     const VkDebugUtilsMessengerCallbackDataEXT *callback_data, void *user_data) {
 
   // TODO: Check Error level for verbosity reasons
-  OE_LOG(LOG_LEVEL_DEBUG, "%s\n", callback_data->pMessage);
+  OE_LOG(LOG_LEVEL_DEBUG, "%s", callback_data->pMessage);
   return false;
 }
 
