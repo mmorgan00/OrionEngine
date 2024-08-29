@@ -49,6 +49,11 @@ bool renderer_backend_initialize() {
   for (const auto& extension : extensionNames) {
     OE_LOG(LOG_LEVEL_DEBUG, "\t%s\n", extension);
   }
+  
+  // This is initialized here, if in debug mode they will be overwritten
+  createInfo.enabledLayerCount = 0;
+
+  createInfo.pNext = nullptr;
 
 #ifdef NDEBUG
 
@@ -58,11 +63,6 @@ bool renderer_backend_initialize() {
   createInfo.enabledExtensionCount = extensionCount;
   createInfo.ppEnabledExtensionNames = extensionNames.data();
 
-
-  VkResult result = vkCreateInstance(&createInfo, nullptr, &context.instance);
-  if(result != VK_SUCCESS){
-    OE_LOG(LOG_LEVEL_FATAL, "Failed to initialize Vulkan instance!");
-  } 
 
   if(!check_validation_layer_support()){
     OE_LOG(LOG_LEVEL_FATAL, "Failed to get validation layers!");
@@ -88,23 +88,42 @@ bool renderer_backend_initialize() {
     VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
   debug_create_info.pfnUserCallback = vk_debug_callback;
 
+  VkResult result = vkCreateInstance(&createInfo, nullptr, &context.instance);
+  if(result != VK_SUCCESS){
+    OE_LOG(LOG_LEVEL_FATAL, "Failed to initialize Vulkan instance!\n");
+  } 
+
+
   PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-        context.instance, "vkCreateDebugUtilsMessengerEXT");
+      context.instance, "vkCreateDebugUtilsMessengerEXT");
   if(func == nullptr) {
     OE_LOG(LOG_LEVEL_ERROR, "Failed to create debug messenger");
     return false;
   }
   if(VK_SUCCESS != func(context.instance, &debug_create_info, nullptr, &context.debug_messenger)){
-    
+
   }
 
   OE_LOG(LOG_LEVEL_DEBUG,"Vulkan debugger created.\n");
+
+  createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debug_create_info;
 #endif 
+
   return true; 
 } 
 
 void renderer_backend_shutdown(){ 
+
+#ifdef NDEBUG
+  // Destroy debug messenger
+  auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(context.instance, "vkDestroyDebugUtilsMessengerEXT");
+  func(context.instance, context.debug_messenger, nullptr);
+
+#endif
+  // Opposite order of creation
   vkDestroyInstance(context.instance, nullptr); 
+
+
 } 
 
 bool check_validation_layer_support(){ 
