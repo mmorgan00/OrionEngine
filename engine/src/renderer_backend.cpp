@@ -118,7 +118,12 @@ bool renderer_backend_initialize(platform_state* plat_state) {
   VK_CHECK(glfwCreateWindowSurface(context.instance, context.window, nullptr, &context.surface)); 
   OE_LOG(LOG_LEVEL_DEBUG, "Vulkan surface created!");
   // Device
-  vulkan_device_create(&context);
+  if(!vulkan_device_create(&context)){
+    OE_LOG(LOG_LEVEL_FATAL, "Failed to find physical device!");
+    return false;
+  }
+
+  // Logical device!
 
   return true; 
 } 
