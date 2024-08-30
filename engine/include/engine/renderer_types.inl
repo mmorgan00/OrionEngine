@@ -4,6 +4,7 @@
 #include "engine/asserts.h"
 
 #include <vulkan/vulkan.h>
+#include <GLFW/glfw3.h>
 
 typedef struct vulkan_swapchain_support_info {
   VkSurfaceCapabilitiesKHR capabilities;
@@ -37,6 +38,8 @@ typedef struct vulkan_device {
 typedef struct backend_context {
   VkInstance instance;
   vulkan_device device;
+  GLFWwindow* window;
+  VkSurfaceKHR surface;
 #ifndef NDEBUG
   VkDebugUtilsMessengerEXT debug_messenger;
 #endif

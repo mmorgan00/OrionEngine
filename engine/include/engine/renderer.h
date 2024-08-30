@@ -1,7 +1,9 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
-bool renderer_initialize();
+#include "engine/platform.h"
+
+bool renderer_initialize(platform_state* plat_state);
 void renderer_shutdown();
 
 #endif

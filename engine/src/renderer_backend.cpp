@@ -1,6 +1,7 @@
 
 #include "engine/renderer_backend.h"
 #include "engine/logger.h"
+#include "engine/platform.h"
 
 #include "engine/vulkan/vulkan_device.h"
 
@@ -10,6 +11,7 @@
 #include <cstring>
 
 #define GLFW_INCLUDE_VULKAN
+#define VK_USE_PLATFORM_WAYLAND_KHR
 #include <GLFW/glfw3.h>
 
 static backend_context context; 
@@ -22,7 +24,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 bool check_validation_layer_support();
 
 
-bool renderer_backend_initialize() {
+bool renderer_backend_initialize(platform_state* plat_state) {
 
   // Initialize Vulkan Instance
 
@@ -62,6 +64,14 @@ bool renderer_backend_initialize() {
   extensionNames.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif
 
+  uint32_t glfwExtensionCount = 0;
+  const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+  for (size_t i = 0; i < glfwExtensionCount; i++) {
+   extensionNames.push_back(glfwExtensions[i]);
+  }
+  extensionCount += glfwExtensionCount;
+
   createInfo.enabledExtensionCount = extensionCount;
   createInfo.ppEnabledExtensionNames = extensionNames.data();
 
@@ -81,7 +91,7 @@ bool renderer_backend_initialize() {
   uint32_t log_severity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
     VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
     VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT; //|
-                                                  // VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
+  // VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
 
   VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
     VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
@@ -94,14 +104,19 @@ bool renderer_backend_initialize() {
 
   PFN_vkCreateDebugUtilsMessengerEXT func =
     (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-        context.instance, "vkCreateDebugUtilsMessengerEXT");
+      context.instance, "vkCreateDebugUtilsMessengerEXT");
   OE_ASSERT_MSG(func, "Failed to create debug messenger!");
   VK_CHECK(func(context.instance, &debug_create_info, nullptr, &context.debug_messenger));
 
   OE_LOG(LOG_LEVEL_DEBUG, "Vulkan debugger created.");
   createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debug_create_info;
 #endif 
-   
+
+  // Save a ref to the window from the plat platform state
+  context.window = plat_state->window;
+  // Now make the surface
+  VK_CHECK(glfwCreateWindowSurface(context.instance, context.window, nullptr, &context.surface)); 
+  OE_LOG(LOG_LEVEL_DEBUG, "Vulkan surface created!");
   // Device
   vulkan_device_create(&context);
 
@@ -112,8 +127,8 @@ void renderer_backend_shutdown(){
 
 #ifndef NDEBUG
   // Destroy debug messenger
-   auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(context.instance, "vkDestroyDebugUtilsMessengerEXT");
-   func(context.instance, context.debug_messenger, nullptr);
+  auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(context.instance, "vkDestroyDebugUtilsMessengerEXT");
+  func(context.instance, context.debug_messenger, nullptr);
 
 #endif
   // Opposite order of creation
@@ -160,9 +175,9 @@ bool check_validation_layer_support(){
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-    VkDebugUtilsMessageTypeFlagsEXT message_types,
-    const VkDebugUtilsMessengerCallbackDataEXT *callback_data, void *user_data) {
+  VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
+  VkDebugUtilsMessageTypeFlagsEXT message_types,
+  const VkDebugUtilsMessengerCallbackDataEXT *callback_data, void *user_data) {
 
   // TODO: Check Error level for verbosity reasons
   OE_LOG(LOG_LEVEL_DEBUG, "%s", callback_data->pMessage);

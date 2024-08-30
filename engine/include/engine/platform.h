@@ -8,8 +8,9 @@ typedef struct platform_state {
   GLFWwindow* window;
 } platform_state;
 
-bool platform_initialize();
+platform_state* platform_initialize();
 
+GLFWwindow* platform_create_window();
 
 void platform_shutdown();
 

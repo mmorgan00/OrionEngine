@@ -12,14 +12,14 @@
 
 static platform_state* plat_state;
 
-bool platform_initialize(){
+platform_state* platform_initialize(){
   plat_state = (platform_state*)malloc(sizeof(platform_state));
 
-  application_initialize(plat_state);
   if(!glfwInit()){
-    return -1;
+    OE_LOG(LOG_LEVEL_FATAL, "GLFW failed to init.");
+    // TODO: Kill app from here
+    return plat_state;
   };
-
 
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
@@ -34,25 +34,24 @@ bool platform_initialize(){
 
   plat_state->window = glfwCreateWindow(mode->width, mode->height, "Orion", primary, NULL);
 
+
   if(!plat_state->window){
     glfwTerminate();
-    return -1;
+    OE_LOG(LOG_LEVEL_FATAL, "Failed to initialize platform. Unrecoverable");
+    // TODO: kill app from here somehow
+    return plat_state;
   }
-  uint32_t extensionCount = 0;
-  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 
   OE_LOG(LOG_LEVEL_INFO, "Platform Initialized!");
 
-  /*while(!glfwWindowShouldClose(window))*/
-  /*{*/
-  /*  glfwPollEvents();*/
-  /*}*/
-  /**/
-
-  return true;
+  // This will be passed to other systems, render, input, etc
+  return plat_state;
 }
 
-
+/**
+ * @brief creates a window according to the platform requirements. 
+ * @detail Creates the GLFW window and returns the shared reference that the platform state uses
+ */
 void platform_shutdown() {
   glfwDestroyWindow(plat_state->window);
 

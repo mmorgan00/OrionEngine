@@ -3,9 +3,9 @@
 #include "engine/renderer_backend.h"
 #include "engine/logger.h"
 
-bool renderer_initialize() {
+bool renderer_initialize(platform_state* plat_state) {
     
-  if(renderer_backend_initialize()){
+  if(renderer_backend_initialize(plat_state)){
     OE_LOG(LOG_LEVEL_INFO, "Renderer initialized");
     return true;
   }
