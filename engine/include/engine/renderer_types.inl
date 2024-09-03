@@ -5,11 +5,12 @@
 
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
+#include <vector>
 
 typedef struct vulkan_swapchain_support_info {
   VkSurfaceCapabilitiesKHR capabilities;
   uint32_t format_count;
-  VkSurfaceFormatKHR *formats;
+  std::vector<VkSurfaceFormatKHR> formats;
   uint32_t present_mode_count;
   VkPresentModeKHR *present_modes;
 } vulkan_swapchain_support_info;

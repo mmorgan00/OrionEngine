@@ -5,5 +5,6 @@
 
 bool vulkan_device_create(backend_context* context);
 
+bool vulkan_device_create_logical_device(backend_context* context);
 
 #endif

@@ -1,11 +1,9 @@
 
 #include "engine/application.h"
+#include "engine/logger.h"
 
 
 #define GLFW_INCLUDE_VULKAN
- 
-#include <stdio.h>
-#include <iostream>
 
 
 #include <GLFW/glfw3.h>
@@ -18,8 +16,6 @@ void application_initialize(platform_state* state) {
 
 bool application_run() {
 
-  while(!glfwWindowShouldClose(plat_state->window)) {
-    glfwPollEvents();
-  }
-  return false;
+  OE_LOG(LOG_LEVEL_DEBUG, "Application terminating");
+ return false;
 }

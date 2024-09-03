@@ -114,29 +114,31 @@ bool renderer_backend_initialize(platform_state* plat_state) {
 
   // Save a ref to the window from the plat platform state
   context.window = plat_state->window;
-  // Now make the surface
+  // Now make the surface - we're using GLFW so just....use it
   VK_CHECK(glfwCreateWindowSurface(context.instance, context.window, nullptr, &context.surface)); 
   OE_LOG(LOG_LEVEL_DEBUG, "Vulkan surface created!");
-  // Device
+  // Device, both physical and logical, queues included
   if(!vulkan_device_create(&context)){
     OE_LOG(LOG_LEVEL_FATAL, "Failed to find physical device!");
     return false;
   }
-
-  // Logical device!
 
   return true; 
 } 
 
 void renderer_backend_shutdown(){ 
 
+  // Opposite order of creation
+  vkDestroyDevice(context.device.logical_device, nullptr);
+  vkDestroySurfaceKHR(context.instance, context.surface, nullptr);
+
 #ifndef NDEBUG
+
   // Destroy debug messenger
   auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(context.instance, "vkDestroyDebugUtilsMessengerEXT");
   func(context.instance, context.debug_messenger, nullptr);
 
 #endif
-  // Opposite order of creation
   vkDestroyInstance(context.instance, nullptr); 
 
 

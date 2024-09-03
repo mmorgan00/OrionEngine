@@ -53,7 +53,7 @@ platform_state* platform_initialize(){
  * @detail Creates the GLFW window and returns the shared reference that the platform state uses
  */
 void platform_shutdown() {
-  glfwDestroyWindow(plat_state->window);
+//  glfwDestroyWindow(plat_state->window);
 
-  glfwTerminate();
+//  glfwTerminate();
 }
