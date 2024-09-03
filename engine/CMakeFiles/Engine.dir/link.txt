@@ -1,1 +1,0 @@
-/usr/bin/c++ -fPIC -shared -Wl,-soname,libEngine.so -o libEngine.so CMakeFiles/Engine.dir/src/platform.cpp.o  /usr/lib/libglfw.so.3.4 /usr/lib/libglm.a
