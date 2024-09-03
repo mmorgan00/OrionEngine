@@ -1,4 +1,39 @@
-## build files
-/build
-/debug
-/CMakeFiles
+# CMake build directories
+/build/
+*/build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Compiled object files
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# User-specific files
+*.user
+*.swo
+*.swp
+
+# Coverage reports
+*.gcda
+*.gcno
+
+# Other files
+*.DS_Store
+Thumbs.db
