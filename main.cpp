@@ -5,14 +5,13 @@
 #include <engine/platform.h>
 #include <engine/renderer.h>
 
-#include <stdio.h>
 #include <iostream>
-
+#include <stdio.h>
 
 int main() {
-  platform_state* plat_state = platform_initialize();
+  platform_state *plat_state = platform_initialize();
   renderer_initialize(plat_state);
-  while(application_run()) {
+  while (application_run()) {
   }
   renderer_shutdown();
   platform_shutdown();
