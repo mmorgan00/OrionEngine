@@ -10,7 +10,8 @@ Makefile
 # Other things we've found
 orionengine/
 .cache
-
+bin/
+debug/
 .pyc
 
 # Compiled object files
