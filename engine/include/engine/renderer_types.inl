@@ -36,6 +36,17 @@ typedef struct vulkan_device {
   VkFormat depth_format;
 } vulkan_device;
 
+
+typedef struct vulkan_swapchain {
+  VkSurfaceFormatKHR image_format;
+  short max_frames_in_flight;
+  VkSwapchainKHR handle;
+  uint32_t image_count;
+  VkImage *images;
+  VkImageView *views; // images not accessed directly in Vulkan
+  
+} vulkan_swapchain;
+
 typedef struct backend_context {
   VkInstance instance;
   vulkan_device device;
@@ -44,7 +55,7 @@ typedef struct backend_context {
 #ifndef NDEBUG
   VkDebugUtilsMessengerEXT debug_messenger;
 #endif
-
+  vulkan_swapchain swapchain;
 } backend_context;
 
 
