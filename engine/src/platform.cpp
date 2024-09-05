@@ -3,10 +3,8 @@
 #define GLFW_INCLUDE_VULKAN
 
 #include "engine/platform.h"
-#include "engine/application.h"
 #include "engine/logger.h"
 
-#include <iostream>
 #include <stdio.h>
 
 static platform_state *plat_state;
@@ -53,7 +51,13 @@ platform_state *platform_initialize() {
  * platform state uses
  */
 void platform_shutdown() {
-  //  glfwDestroyWindow(plat_state->window);
+ glfwDestroyWindow(plat_state->window);
 
-  //  glfwTerminate();
+  glfwTerminate();
 }
+
+
+void platform_read_file() {
+
+}
+

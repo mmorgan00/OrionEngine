@@ -1,5 +1,5 @@
 #ifndef APPLICATION_H
-#define APPLIATION_H
+#define APPLICATION_H
 
 #include "engine/platform.h"
 
