@@ -126,6 +126,7 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   }
 
   vulkan_swapchain_create(&context); 
+  vulkan_swapchain_create_image_views(&context);
 
   return true;
 }
@@ -133,6 +134,11 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 void renderer_backend_shutdown() {
 
   // Opposite order of creation
+
+  // Image views
+  for (auto image_view : context.swapchain.views) {
+        vkDestroyImageView(context.device.logical_device, image_view, nullptr);
+    }
   vkDestroySwapchainKHR(context.device.logical_device, context.swapchain.handle, nullptr);
   vkDestroyDevice(context.device.logical_device, nullptr);
   vkDestroySurfaceKHR(context.instance, context.surface, nullptr);

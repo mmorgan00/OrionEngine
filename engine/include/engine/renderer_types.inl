@@ -38,12 +38,13 @@ typedef struct vulkan_device {
 
 
 typedef struct vulkan_swapchain {
-  VkSurfaceFormatKHR image_format;
+  VkFormat image_format;
   short max_frames_in_flight;
   VkSwapchainKHR handle;
+  VkExtent2D extent;
   uint32_t image_count;
-  VkImage *images;
-  VkImageView *views; // images not accessed directly in Vulkan
+  std::vector<VkImage> images;
+  std::vector<VkImageView> views; // images not accessed directly in Vulkan
   
 } vulkan_swapchain;
 
