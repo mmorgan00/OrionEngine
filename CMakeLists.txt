@@ -1,8 +1,6 @@
-cmake_minimum_required(VERSION 3.10)
-
-# Set the project name
+cmake_minimum_required(VERSION 3.10) 
+# Set the project name 
 project(Orion)
-
 # Specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -49,6 +47,11 @@ target_include_directories(${PROJECT_NAME}
   PRIVATE 
   ${GLFW_INCLUDE_DIRS}
   ${GLM_INCLUDE_DIRS}
+)
+
+add_custom_target(format
+  COMMAND clang-format -i -style=file ${CMAKE_SOURCE_DIR}/engine/src/*.cpp ${CMAKE_SOURCE_DIR}/engine/src/vulkan/*.cpp ${CMAKE_SOURCE_DIR}engine/include/engine/vulkan/*.h {CMAKE_SOURCE_DIR}engine/include/engine/*.h
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
 add_custom_command(TARGET Orion POST_BUILD

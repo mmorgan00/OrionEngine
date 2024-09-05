@@ -1,0 +1,148 @@
+
+[
+ {
+  "directory": "/home/mmorgan/orionengine/debug",
+  "arguments": [
+   "/usr/bin/c++",
+   "-DEngine_EXPORTS",
+   "-I/home/mmorgan/orionengine/engine/include",
+   "-g",
+   "-std=gnu++17",
+   "-fPIC",
+   "-MD",
+   "-MT",
+   "engine/CMakeFiles/Engine.dir/src/application.cpp.o",
+   "-MF",
+   "CMakeFiles/Engine.dir/src/application.cpp.o.d",
+   "-o",
+   "CMakeFiles/Engine.dir/src/application.cpp.o",
+   "-c",
+   "/home/mmorgan/orionengine/engine/src/application.cpp"
+  ],
+  "file": "/home/mmorgan/orionengine/engine/src/application.cpp"
+ },
+ {
+  "directory": "/home/mmorgan/orionengine/debug",
+  "arguments": [
+   "/usr/bin/c++",
+   "-DEngine_EXPORTS",
+   "-I/home/mmorgan/orionengine/engine/include",
+   "-g",
+   "-std=gnu++17",
+   "-fPIC",
+   "-MD",
+   "-MT",
+   "engine/CMakeFiles/Engine.dir/src/logger.cpp.o",
+   "-MF",
+   "CMakeFiles/Engine.dir/src/logger.cpp.o.d",
+   "-o",
+   "CMakeFiles/Engine.dir/src/logger.cpp.o",
+   "-c",
+   "/home/mmorgan/orionengine/engine/src/logger.cpp"
+  ],
+  "file": "/home/mmorgan/orionengine/engine/src/logger.cpp"
+ },
+ {
+  "directory": "/home/mmorgan/orionengine/debug",
+  "arguments": [
+   "/usr/bin/c++",
+   "-DEngine_EXPORTS",
+   "-I/home/mmorgan/orionengine/engine/include",
+   "-g",
+   "-std=gnu++17",
+   "-fPIC",
+   "-MD",
+   "-MT",
+   "engine/CMakeFiles/Engine.dir/src/platform.cpp.o",
+   "-MF",
+   "CMakeFiles/Engine.dir/src/platform.cpp.o.d",
+   "-o",
+   "CMakeFiles/Engine.dir/src/platform.cpp.o",
+   "-c",
+   "/home/mmorgan/orionengine/engine/src/platform.cpp"
+  ],
+  "file": "/home/mmorgan/orionengine/engine/src/platform.cpp"
+ },
+ {
+  "directory": "/home/mmorgan/orionengine/debug",
+  "arguments": [
+   "/usr/bin/c++",
+   "-DEngine_EXPORTS",
+   "-I/home/mmorgan/orionengine/engine/include",
+   "-g",
+   "-std=gnu++17",
+   "-fPIC",
+   "-MD",
+   "-MT",
+   "engine/CMakeFiles/Engine.dir/src/renderer.cpp.o",
+   "-MF",
+   "CMakeFiles/Engine.dir/src/renderer.cpp.o.d",
+   "-o",
+   "CMakeFiles/Engine.dir/src/renderer.cpp.o",
+   "-c",
+   "/home/mmorgan/orionengine/engine/src/renderer.cpp"
+  ],
+  "file": "/home/mmorgan/orionengine/engine/src/renderer.cpp"
+ },
+ {
+  "directory": "/home/mmorgan/orionengine/debug",
+  "arguments": [
+   "/usr/bin/c++",
+   "-DEngine_EXPORTS",
+   "-I/home/mmorgan/orionengine/engine/include",
+   "-g",
+   "-std=gnu++17",
+   "-fPIC",
+   "-MD",
+   "-MT",
+   "engine/CMakeFiles/Engine.dir/src/renderer_backend.cpp.o",
+   "-MF",
+   "CMakeFiles/Engine.dir/src/renderer_backend.cpp.o.d",
+   "-o",
+   "CMakeFiles/Engine.dir/src/renderer_backend.cpp.o",
+   "-c",
+   "/home/mmorgan/orionengine/engine/src/renderer_backend.cpp"
+  ],
+  "file": "/home/mmorgan/orionengine/engine/src/renderer_backend.cpp"
+ },
+ {
+  "directory": "/home/mmorgan/orionengine/debug",
+  "arguments": [
+   "/usr/bin/c++",
+   "-DEngine_EXPORTS",
+   "-I/home/mmorgan/orionengine/engine/include",
+   "-g",
+   "-std=gnu++17",
+   "-fPIC",
+   "-MD",
+   "-MT",
+   "engine/CMakeFiles/Engine.dir/src/vulkan/vulkan_device.cpp.o",
+   "-MF",
+   "CMakeFiles/Engine.dir/src/vulkan/vulkan_device.cpp.o.d",
+   "-o",
+   "CMakeFiles/Engine.dir/src/vulkan/vulkan_device.cpp.o",
+   "-c",
+   "/home/mmorgan/orionengine/engine/src/vulkan/vulkan_device.cpp"
+  ],
+  "file": "/home/mmorgan/orionengine/engine/src/vulkan/vulkan_device.cpp"
+ },
+ {
+  "directory": "/home/mmorgan/orionengine/debug",
+  "arguments": [
+   "/usr/bin/c++",
+   "-I/home/mmorgan/orionengine/engine/include",
+   "-g",
+   "-std=gnu++17",
+   "-MD",
+   "-MT",
+   "CMakeFiles/Orion.dir/main.cpp.o",
+   "-MF",
+   "CMakeFiles/Orion.dir/main.cpp.o.d",
+   "-o",
+   "CMakeFiles/Orion.dir/main.cpp.o",
+   "-c",
+   "/home/mmorgan/orionengine/main.cpp"
+  ],
+  "file": "/home/mmorgan/orionengine/main.cpp"
+ }
+]

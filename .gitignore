@@ -7,6 +7,12 @@ cmake_install.cmake
 Makefile
 *.cmake
 
+# Other things we've found
+orionengine/
+.cache
+
+.pyc
+
 # Compiled object files
 *.o
 *.obj
