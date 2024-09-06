@@ -1,18 +1,20 @@
 #ifndef RENDERER_TYPES
 #define RENDERER_TYPES
 
-#include "engine/asserts.h"
-
-#include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
+
 #include <vector>
+
+#include "engine/asserts.h"
 
 typedef struct vulkan_swapchain_support_info {
   VkSurfaceCapabilitiesKHR capabilities;
   uint32_t format_count;
   std::vector<VkSurfaceFormatKHR> formats;
   uint32_t present_mode_count;
-  VkPresentModeKHR *present_modes;
+  VkPresentModeKHR* present_modes;
 } vulkan_swapchain_support_info;
 
 typedef struct vulkan_device {
@@ -36,7 +38,6 @@ typedef struct vulkan_device {
   VkFormat depth_format;
 } vulkan_device;
 
-
 typedef struct vulkan_swapchain {
   VkFormat image_format;
   short max_frames_in_flight;
@@ -44,9 +45,14 @@ typedef struct vulkan_swapchain {
   VkExtent2D extent;
   uint32_t image_count;
   std::vector<VkImage> images;
-  std::vector<VkImageView> views; // images not accessed directly in Vulkan
-  
+  std::vector<VkImageView> views;  // images not accessed directly in Vulkan
+
 } vulkan_swapchain;
+
+typedef struct vulkan_pipeline {
+  VkPipeline handle;
+  VkPipelineLayout layout;
+} vulkan_pipeline;
 
 typedef struct backend_context {
   VkInstance instance;
@@ -59,11 +65,10 @@ typedef struct backend_context {
   vulkan_swapchain swapchain;
 } backend_context;
 
-
-#define VK_CHECK(expr) \
-    do { \
-        VkResult result = (expr); \
-        OE_ASSERT(result == VK_SUCCESS); \
-    } while(0)
+#define VK_CHECK(expr)               \
+  do {                               \
+    VkResult result = (expr);        \
+    OE_ASSERT(result == VK_SUCCESS); \
+  } while (0)
 
 #endif

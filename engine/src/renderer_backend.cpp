@@ -1,13 +1,14 @@
 
 #include "engine/renderer_backend.h"
-#include "engine/logger.h"
-#include "engine/platform.h"
-
-#include "engine/vulkan/vulkan_device.h"
-#include "engine/vulkan/vulkan_swapchain.h"
 
 #include <cstring>
 #include <vector>
+
+#include "engine/logger.h"
+#include "engine/platform.h"
+#include "engine/vulkan/vulkan_device.h"
+#include "engine/vulkan/vulkan_pipeline.h"
+#include "engine/vulkan/vulkan_swapchain.h"
 
 #define GLFW_INCLUDE_VULKAN
 #define VK_USE_PLATFORM_WAYLAND_KHR
@@ -23,7 +24,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 bool check_validation_layer_support();
 
 bool renderer_backend_initialize(platform_state *plat_state) {
-
   // Initialize Vulkan Instance
 
   VkApplicationInfo appInfo = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
@@ -46,7 +46,7 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   std::vector<const char *> extensionNames;
   for (const auto &extension : extensions) {
     extensionNames.push_back(
-        extension.extensionName); // Add the extension name to the vector
+        extension.extensionName);  // Add the extension name to the vector
   }
   OE_LOG(LOG_LEVEL_DEBUG, "available extensions:");
 
@@ -90,7 +90,7 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 
   uint32_t log_severity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                          VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT; //|
+                          VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;  //|
   // VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
 
   VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
@@ -125,14 +125,21 @@ bool renderer_backend_initialize(platform_state *plat_state) {
     return false;
   }
 
+  // Create swapchain and associated imageviews
+  // TODO: Consider moving create_image_views into the swapchain create, not
+  // really relevant to backend as a separate step
   vulkan_swapchain_create(&context);
   vulkan_swapchain_create_image_views(&context);
 
+  // Create pipeline
+  vulkan_pipeline pipeline;
+  vulkan_pipeline_create(&context, pipeline);
+  // TODO: This should probably be shader module specific
+  OE_LOG(LOG_LEVEL_INFO, "Vulkan pipeline created");
   return true;
 }
 
 void renderer_backend_shutdown() {
-
   // Opposite order of creation
 
   // Image views
@@ -197,7 +204,6 @@ vk_debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
                   VkDebugUtilsMessageTypeFlagsEXT message_types,
                   const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
                   void *user_data) {
-
   // TODO: Check Error level for verbosity reasons
   OE_LOG(LOG_LEVEL_DEBUG, "%s", callback_data->pMessage);
   return false;

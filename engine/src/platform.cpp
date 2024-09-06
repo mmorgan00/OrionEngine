@@ -3,9 +3,12 @@
 #define GLFW_INCLUDE_VULKAN
 
 #include "engine/platform.h"
-#include "engine/logger.h"
 
-#include <stdio.h>
+#include <stdlib.h>
+
+#include <vector>
+
+#include "engine/logger.h"
 
 static platform_state *plat_state;
 
@@ -51,13 +54,27 @@ platform_state *platform_initialize() {
  * platform state uses
  */
 void platform_shutdown() {
- glfwDestroyWindow(plat_state->window);
+  glfwDestroyWindow(plat_state->window);
 
   glfwTerminate();
 }
 
+/**
+ * @brief Reads a file and returns the contents as a buffer
+ * @returns std::vector of chars
+ */
+std::vector<char> platform_read_file(const std::string &filename) {
+  std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-void platform_read_file() {
+  if (!file.is_open()) {
+    throw std::runtime_error("failed to open file!");
+  }
 
+  size_t fileSize = (size_t)file.tellg();
+  std::vector<char> buffer(fileSize);
+  file.seekg(0);
+  file.read(buffer.data(), fileSize);
+  file.close();
+
+  return buffer;
 }
-

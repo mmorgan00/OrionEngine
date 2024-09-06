@@ -1,0 +1,158 @@
+#include "engine/vulkan/vulkan_pipeline.h"
+
+#include <vulkan/vulkan_core.h>
+
+#include "engine/logger.h"
+#include "engine/platform.h"
+#include "engine/vulkan/vulkan_shader.h"
+
+void vulkan_pipeline_create(backend_context *context,
+                            vulkan_pipeline out_pipeline) {
+  // Read in shaders code
+  // TODO: This should not be hardcoded to the default shaders
+  // TODO: You should just need to pass file name of the shader, not the
+  // '../assets/shaders' bit
+  auto vert_shader_code =
+      platform_read_file("../assets/shaders/default.vert.glsl");
+  auto frag_shader_code =
+      platform_read_file("../assets/shaders/default.frag.glsl");
+
+  VkShaderModule defaultVert = vulkan_shader_create(context, vert_shader_code);
+  VkShaderModule defaultFrag = vulkan_shader_create(context, vert_shader_code);
+
+  OE_LOG(LOG_LEVEL_INFO, "Default shaders created");
+
+  // Create the pipeline stages
+  VkPipelineShaderStageCreateInfo
+      vss_info{};  // vert shader stage(vss) create info.
+  vss_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  ;
+  vss_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+  vss_info.module = defaultVert;
+  vss_info.pName = "main";  // Don't be weird and change this to something that
+                            // isn't main. It'll break more than it'll help
+  vss_info.pSpecializationInfo = nullptr;  // REVISIT THIS AT SOME POINT.
+
+  VkPipelineShaderStageCreateInfo fss_info{};
+  fss_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  fss_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+  fss_info.module = defaultFrag;
+  fss_info.pName = "main";
+
+  // Bundle together
+  VkPipelineShaderStageCreateInfo shader_stages[] = {vss_info, fss_info};
+
+  std::vector<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT,
+                                                VK_DYNAMIC_STATE_SCISSOR};
+
+  VkPipelineDynamicStateCreateInfo dynamic_state{};
+  dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+  dynamic_state.dynamicStateCount =
+      static_cast<uint32_t>(dynamic_states.size());
+  dynamic_state.pDynamicStates = dynamic_states.data();
+
+  // TODO: Enable vertex buffer loading. Hard coding for now just to get things
+  // running
+
+  VkPipelineVertexInputStateCreateInfo vertex_input_info{};
+  vertex_input_info.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+  vertex_input_info.vertexBindingDescriptionCount = 0;
+  vertex_input_info.pVertexBindingDescriptions = nullptr;  // Optional
+  vertex_input_info.vertexAttributeDescriptionCount = 0;
+  vertex_input_info.pVertexAttributeDescriptions = nullptr;
+
+  // We're triangle gamers here
+  VkPipelineInputAssemblyStateCreateInfo input_assembly{};
+  input_assembly.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+  input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  input_assembly.primitiveRestartEnable = VK_FALSE;
+
+  VkViewport viewport{};
+  viewport.x = 0.0f;
+  viewport.y = 0.0f;
+  viewport.width = (float)context->swapchain.extent.width;
+  viewport.height = (float)context->swapchain.extent.height;
+  viewport.minDepth = 0.0f;
+  viewport.maxDepth = 1.0f;
+
+  VkRect2D scissor{};
+  scissor.offset = {0, 0};
+  scissor.extent = context->swapchain.extent;
+
+  VkPipelineViewportStateCreateInfo viewport_state{};
+  viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+  viewport_state.viewportCount = 1;
+  viewport_state.scissorCount = 1;
+  viewport_state.pScissors = &scissor;
+  viewport_state.pViewports = &viewport;
+
+  // Rasterizer time. It'd be cool to beat Epic games' nanite someday
+  VkPipelineRasterizationStateCreateInfo rasterizer{};
+  rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+  rasterizer.depthClampEnable = VK_FALSE;
+  rasterizer.rasterizerDiscardEnable = VK_FALSE;
+  rasterizer.polygonMode =
+      VK_POLYGON_MODE_FILL;     // TODO: Look at VK_POLYGON_MODE_LINE/POINT for
+                                // editor
+  rasterizer.lineWidth = 1.0f;  // Other than this requires GPU feature
+  rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+  rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+  rasterizer.depthBiasEnable = VK_FALSE;
+  rasterizer.depthBiasConstantFactor = 0.0f;
+  rasterizer.depthBiasClamp = 0.0f;
+  rasterizer.depthBiasSlopeFactor = 0.0f;
+
+  VkPipelineMultisampleStateCreateInfo multisampling{};
+  multisampling.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+  multisampling.sampleShadingEnable = VK_FALSE;
+  multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+  multisampling.minSampleShading = 1.0f;           // Optional
+  multisampling.pSampleMask = nullptr;             // Optional
+  multisampling.alphaToCoverageEnable = VK_FALSE;  // Optional
+  multisampling.alphaToOneEnable = VK_FALSE;       // Optional
+
+  VkPipelineColorBlendAttachmentState color_blend_attachment{};
+  color_blend_attachment.colorWriteMask =
+      VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+      VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+  color_blend_attachment.blendEnable = VK_FALSE;
+  color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;  // Optional
+  color_blend_attachment.dstColorBlendFactor =
+      VK_BLEND_FACTOR_ZERO;                                          // Optional
+  color_blend_attachment.colorBlendOp = VK_BLEND_OP_ADD;             // Optional
+  color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;  // Optional
+  color_blend_attachment.dstAlphaBlendFactor =
+      VK_BLEND_FACTOR_ZERO;                               // Optional
+  color_blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;  // Optional
+  color_blend_attachment.blendEnable = VK_TRUE;
+  color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+  color_blend_attachment.dstColorBlendFactor =
+      VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+  color_blend_attachment.colorBlendOp = VK_BLEND_OP_ADD;
+  color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+  color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+  color_blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+  // Make the pipeline layout, this affects our uniforms (IE our VP part of our
+  // MVP)
+
+  VkPipelineLayoutCreateInfo pipeline_layout_info{};
+  pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  pipeline_layout_info.setLayoutCount = 0;
+  pipeline_layout_info.pSetLayouts = nullptr;
+  pipeline_layout_info.pushConstantRangeCount = 0;
+  pipeline_layout_info.pPushConstantRanges = nullptr;
+
+  VK_CHECK(vkCreatePipelineLayout(context->device.logical_device,
+                                  &pipeline_layout_info, nullptr,
+                                  &out_pipeline.layout));
+
+  // Not needed after bound to pipeline
+  vkDestroyShaderModule(context->device.logical_device, defaultVert, nullptr);
+  vkDestroyShaderModule(context->device.logical_device, defaultFrag, nullptr);
+
+  return;
+}
