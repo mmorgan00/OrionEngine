@@ -2,33 +2,17 @@
 
 #include <vulkan/vulkan_core.h>
 
-#include "engine/logger.h"
-#include "engine/platform.h"
-#include "engine/vulkan/vulkan_shader.h"
-
 void vulkan_pipeline_create(backend_context *context,
+                            VkShaderModule vert_shader,
+                            VkShaderModule frag_shader,
                             vulkan_pipeline out_pipeline) {
-  // Read in shaders code
-  // TODO: This should not be hardcoded to the default shaders
-  // TODO: You should just need to pass file name of the shader, not the
-  // '../assets/shaders' bit
-  auto vert_shader_code =
-      platform_read_file("../assets/shaders/default.vert.glsl");
-  auto frag_shader_code =
-      platform_read_file("../assets/shaders/default.frag.glsl");
-
-  VkShaderModule defaultVert = vulkan_shader_create(context, vert_shader_code);
-  VkShaderModule defaultFrag = vulkan_shader_create(context, vert_shader_code);
-
-  OE_LOG(LOG_LEVEL_INFO, "Default shaders created");
-
   // Create the pipeline stages
   VkPipelineShaderStageCreateInfo
       vss_info{};  // vert shader stage(vss) create info.
   vss_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   ;
   vss_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-  vss_info.module = defaultVert;
+  vss_info.module = vert_shader;
   vss_info.pName = "main";  // Don't be weird and change this to something that
                             // isn't main. It'll break more than it'll help
   vss_info.pSpecializationInfo = nullptr;  // REVISIT THIS AT SOME POINT.
@@ -36,7 +20,7 @@ void vulkan_pipeline_create(backend_context *context,
   VkPipelineShaderStageCreateInfo fss_info{};
   fss_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   fss_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-  fss_info.module = defaultFrag;
+  fss_info.module = frag_shader;
   fss_info.pName = "main";
 
   // Bundle together
@@ -151,8 +135,8 @@ void vulkan_pipeline_create(backend_context *context,
                                   &out_pipeline.layout));
 
   // Not needed after bound to pipeline
-  vkDestroyShaderModule(context->device.logical_device, defaultVert, nullptr);
-  vkDestroyShaderModule(context->device.logical_device, defaultFrag, nullptr);
+  vkDestroyShaderModule(context->device.logical_device, vert_shader, nullptr);
+  vkDestroyShaderModule(context->device.logical_device, frag_shader, nullptr);
 
   return;
 }

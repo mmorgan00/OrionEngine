@@ -1,6 +1,8 @@
 
 #include "engine/renderer_backend.h"
 
+#include <vulkan/vulkan_core.h>
+
 #include <cstring>
 #include <vector>
 
@@ -8,6 +10,7 @@
 #include "engine/platform.h"
 #include "engine/vulkan/vulkan_device.h"
 #include "engine/vulkan/vulkan_pipeline.h"
+#include "engine/vulkan/vulkan_shader.h"
 #include "engine/vulkan/vulkan_swapchain.h"
 
 #define GLFW_INCLUDE_VULKAN
@@ -131,17 +134,17 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   vulkan_swapchain_create(&context);
   vulkan_swapchain_create_image_views(&context);
 
-  // Create pipeline
-  vulkan_pipeline pipeline;
-  vulkan_pipeline_create(&context, pipeline);
-  // TODO: This should probably be shader module specific
-  OE_LOG(LOG_LEVEL_INFO, "Vulkan pipeline created");
+  vulkan_shader_create(
+      &context, "default.vert.glsl",
+      "default.frag.glsl");  // paths hardcoded just try not to segfault
   return true;
 }
 
 void renderer_backend_shutdown() {
   // Opposite order of creation
 
+  vkDestroyPipelineLayout(context.device.logical_device,
+                          context.pipeline.layout, nullptr);
   // Image views
   for (auto image_view : context.swapchain.views) {
     vkDestroyImageView(context.device.logical_device, image_view, nullptr);

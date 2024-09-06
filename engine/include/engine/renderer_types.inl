@@ -54,11 +54,28 @@ typedef struct vulkan_pipeline {
   VkPipelineLayout layout;
 } vulkan_pipeline;
 
+typedef struct vulkan_shader_stage {
+  VkShaderModuleCreateInfo create_info;
+  VkShaderModule handle;
+  VkPipelineShaderStageCreateInfo shader_stage_create_info;
+} vulkan_shader_stage;
+
+#define OBJECT_SHADER_STAGE_COUNT 2  // vertex, fragment for now
+
+typedef struct vulkan_object_shader {
+  // vertex, fragment
+  vulkan_shader_stage stages[OBJECT_SHADER_STAGE_COUNT];
+
+  vulkan_pipeline pipeline;
+
+} vulkan_object_shader;
+
 typedef struct backend_context {
   VkInstance instance;
   vulkan_device device;
   GLFWwindow* window;
   VkSurfaceKHR surface;
+  vulkan_pipeline pipeline;
 #ifndef NDEBUG
   VkDebugUtilsMessengerEXT debug_messenger;
 #endif
