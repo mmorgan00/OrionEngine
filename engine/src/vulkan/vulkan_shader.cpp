@@ -15,9 +15,6 @@ vulkan_object_shader vulkan_shader_create(backend_context* context,
   std::string asset_path = "../assets/shaders/";
   vulkan_object_shader vos{};
   // Read in shaders code
-  // TODO: This should not be hardcoded to the default shaders
-  // TODO: You should just need to pass file name of the shader, not the
-  // '../assets/shaders' bit
   auto vert_shader_code = platform_read_file(asset_path + vert_path);
   auto frag_shader_code = platform_read_file(asset_path + frag_path);
   OE_LOG(LOG_LEVEL_INFO, "Default shaders created");
