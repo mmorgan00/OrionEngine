@@ -2,7 +2,11 @@
 
 #include <vulkan/vulkan_core.h>
 
-void vulkan_pipeline_create(backend_context *context,
+#include "engine/logger.h"
+#include "engine/renderer_types.inl"
+
+void vulkan_pipeline_create(backend_context* context,
+                            vulkan_renderpass* renderpass,
                             VkShaderModule vert_shader,
                             VkShaderModule frag_shader,
                             vulkan_pipeline out_pipeline) {
@@ -119,7 +123,17 @@ void vulkan_pipeline_create(backend_context *context,
   color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
   color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
   color_blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
-
+  VkPipelineColorBlendStateCreateInfo color_blending{};
+  color_blending.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+  color_blending.logicOpEnable = VK_FALSE;
+  color_blending.logicOp = VK_LOGIC_OP_COPY;  // Optional
+  color_blending.attachmentCount = 1;
+  color_blending.pAttachments = &color_blend_attachment;
+  color_blending.blendConstants[0] = 0.0f;  // Optional
+  color_blending.blendConstants[1] = 0.0f;  // Optional
+  color_blending.blendConstants[2] = 0.0f;  // Optional
+  color_blending.blendConstants[3] = 0.0f;
   // Make the pipeline layout, this affects our uniforms (IE our VP part of our
   // MVP)
 
@@ -133,6 +147,30 @@ void vulkan_pipeline_create(backend_context *context,
   VK_CHECK(vkCreatePipelineLayout(context->device.logical_device,
                                   &pipeline_layout_info, nullptr,
                                   &out_pipeline.layout));
+
+  VkGraphicsPipelineCreateInfo pipeline_create_info{};
+  pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+  pipeline_create_info.stageCount =
+      2;  // TODO: Configure based on actual shaders passed in?
+  pipeline_create_info.pStages = shader_stages;
+  pipeline_create_info.pVertexInputState = &vertex_input_info;
+  pipeline_create_info.pInputAssemblyState = &input_assembly;
+  pipeline_create_info.pViewportState = &viewport_state;
+  pipeline_create_info.pRasterizationState = &rasterizer;
+  pipeline_create_info.pMultisampleState = &multisampling;
+  pipeline_create_info.pDepthStencilState = nullptr;
+  pipeline_create_info.pColorBlendState = &color_blending;
+  pipeline_create_info.pDynamicState = &dynamic_state;
+  pipeline_create_info.layout = out_pipeline.layout;
+  pipeline_create_info.renderPass = renderpass->handle;
+  pipeline_create_info.subpass = 0;  // index
+  pipeline_create_info.basePipelineHandle = nullptr;
+  pipeline_create_info.basePipelineIndex = -1;
+
+  VK_CHECK(vkCreateGraphicsPipelines(context->device.logical_device,
+                                     VK_NULL_HANDLE, 1, &pipeline_create_info,
+                                     nullptr, &out_pipeline.handle));
+  OE_LOG(LOG_LEVEL_INFO, "Created graphics pipeline");
 
   // Not needed after bound to pipeline
   vkDestroyShaderModule(context->device.logical_device, vert_shader, nullptr);

@@ -9,7 +9,7 @@
 #include "engine/logger.h"
 #include "engine/platform.h"
 #include "engine/vulkan/vulkan_device.h"
-#include "engine/vulkan/vulkan_pipeline.h"
+#include "engine/vulkan/vulkan_renderpass.h"
 #include "engine/vulkan/vulkan_shader.h"
 #include "engine/vulkan/vulkan_swapchain.h"
 
@@ -134,9 +134,16 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   vulkan_swapchain_create(&context);
   vulkan_swapchain_create_image_views(&context);
 
+  // Main renderpass
+  vulkan_renderpass_create(&context, context.main_renderpass);
+
+  OE_LOG(LOG_LEVEL_INFO, "Main renderpass created");
+
   vulkan_shader_create(
-      &context, "default.vert.glsl",
+      &context, &context.main_renderpass, "default.vert.glsl",
       "default.frag.glsl");  // paths hardcoded just try not to segfault
+  //
+  //
   return true;
 }
 

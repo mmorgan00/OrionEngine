@@ -38,6 +38,10 @@ typedef struct vulkan_device {
   VkFormat depth_format;
 } vulkan_device;
 
+typedef struct vulkan_renderpass {
+  VkRenderPass handle;
+} vulkan_renderpass;
+
 typedef struct vulkan_swapchain {
   VkFormat image_format;
   short max_frames_in_flight;
@@ -66,8 +70,6 @@ typedef struct vulkan_object_shader {
   // vertex, fragment
   vulkan_shader_stage stages[OBJECT_SHADER_STAGE_COUNT];
 
-  vulkan_pipeline pipeline;
-
 } vulkan_object_shader;
 
 typedef struct backend_context {
@@ -76,6 +78,7 @@ typedef struct backend_context {
   GLFWwindow* window;
   VkSurfaceKHR surface;
   vulkan_pipeline pipeline;
+  vulkan_renderpass main_renderpass;
 #ifndef NDEBUG
   VkDebugUtilsMessengerEXT debug_messenger;
 #endif
