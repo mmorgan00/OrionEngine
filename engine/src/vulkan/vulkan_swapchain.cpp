@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "engine/logger.h"
+#include "engine/renderer_types.inl"
 
 VkSurfaceFormatKHR swapchain_select_surface_format(
     const std::vector<VkSurfaceFormatKHR> available_formats) {
@@ -54,7 +55,7 @@ VkExtent2D swapchain_select_extent(
   }
 }
 
-void vulkan_swapchain_create(backend_context *context) {
+void create(backend_context *context) {
   // Going to reference this a lot, so for convenience sake
   auto sc_s = context->device.swapchain_support;
 
@@ -124,7 +125,32 @@ void vulkan_swapchain_create(backend_context *context) {
   // We'll want these later
   context->swapchain.image_format = surface_format.format;
   context->swapchain.extent = extent;
+}
 
+void vulkan_swapchain_destroy(backend_context *context) {
+  for (size_t i = 0; i < context->swapchain.framebuffers.size(); i++) {
+    vkDestroyFramebuffer(context->device.logical_device,
+                         context->swapchain.framebuffers[i], nullptr);
+  }
+
+  for (size_t i = 0; i < context->swapchain.views.size(); i++) {
+    vkDestroyImageView(context->device.logical_device,
+                       context->swapchain.views[i], nullptr);
+  }
+
+  vkDestroySwapchainKHR(context->device.logical_device,
+                        context->swapchain.handle, nullptr);
+}
+
+void recreate_swapchain(backend_context *context) {
+  vkDeviceWaitIdle(context->device.logical_device);
+
+  vulkan_swapchain_destroy(context);
+  create(context);
+}
+
+void vulkan_swapchain_create(backend_context *context) {
+  create(context);  // just call helper function
   OE_LOG(LOG_LEVEL_INFO, "Swapchain created!");
 }
 

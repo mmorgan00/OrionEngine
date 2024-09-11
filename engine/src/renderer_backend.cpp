@@ -341,6 +341,7 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 
 void renderer_backend_shutdown() {
   // Opposite order of creation
+  vulkan_swapchain_destroy(&context);
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     vkDestroyFence(context.device.logical_device, context.in_flight_fence[i],
                    nullptr);
@@ -352,17 +353,11 @@ void renderer_backend_shutdown() {
   }
   vkDestroyCommandPool(context.device.logical_device, context.command_pool,
                        nullptr);
-  for (auto framebuffer : context.swapchain.framebuffers) {
-    vkDestroyFramebuffer(context.device.logical_device, framebuffer, nullptr);
-  }
+
+  vkDestroyPipeline(context.device.logical_device, context.pipeline.handle,
+                    nullptr);
   vkDestroyPipelineLayout(context.device.logical_device,
                           context.pipeline.layout, nullptr);
-  // Image views
-  for (auto image_view : context.swapchain.views) {
-    vkDestroyImageView(context.device.logical_device, image_view, nullptr);
-  }
-  vkDestroySwapchainKHR(context.device.logical_device, context.swapchain.handle,
-                        nullptr);
   vkDestroyDevice(context.device.logical_device, nullptr);
   vkDestroySurfaceKHR(context.instance, context.surface, nullptr);
 
