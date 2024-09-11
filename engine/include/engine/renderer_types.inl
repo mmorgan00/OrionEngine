@@ -9,6 +9,8 @@
 
 #include "engine/asserts.h"
 
+#define MAX_FRAMES_IN_FLIGHT 2
+
 typedef struct vulkan_swapchain_support_info {
   VkSurfaceCapabilitiesKHR capabilities;
   uint32_t format_count;
@@ -44,7 +46,6 @@ typedef struct vulkan_renderpass {
 
 typedef struct vulkan_swapchain {
   VkFormat image_format;
-  short max_frames_in_flight;
   VkSwapchainKHR handle;
   VkExtent2D extent;
   uint32_t image_count;
@@ -80,14 +81,15 @@ typedef struct backend_context {
   vulkan_pipeline pipeline;
   vulkan_renderpass main_renderpass;
   VkCommandPool command_pool;
-  VkCommandBuffer command_buffer;
+  std::vector<VkCommandBuffer> command_buffer;
 #ifndef NDEBUG
   VkDebugUtilsMessengerEXT debug_messenger;
 #endif
   vulkan_swapchain swapchain;
-  VkSemaphore image_available_semaphore;
-  VkSemaphore render_finished_semaphore;
-  VkFence in_flight_fence;
+  std::vector<VkSemaphore> image_available_semaphore;
+  std::vector<VkSemaphore> render_finished_semaphore;
+  std::vector<VkFence> in_flight_fence;
+  uint32_t current_frame;
 } backend_context;
 
 #define VK_CHECK(expr)               \

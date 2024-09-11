@@ -9,8 +9,8 @@
 
 #include "engine/logger.h"
 #include "engine/platform.h"
+#include "engine/renderer_types.inl"
 #include "engine/vulkan/vulkan_device.h"
-#include "engine/vulkan/vulkan_pipeline.h"
 #include "engine/vulkan/vulkan_renderpass.h"
 #include "engine/vulkan/vulkan_shader.h"
 #include "engine/vulkan/vulkan_swapchain.h"
@@ -21,40 +21,49 @@
 
 static backend_context context;
 
-void create_sync_objets() {
-  VkSemaphoreCreateInfo sem_create_info{};
-  sem_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+void create_sync_objects() {
+  context.image_available_semaphore.resize(MAX_FRAMES_IN_FLIGHT);
+  context.render_finished_semaphore.resize(MAX_FRAMES_IN_FLIGHT);
+  context.in_flight_fence.resize(MAX_FRAMES_IN_FLIGHT);
 
-  VkFenceCreateInfo fence_create_info{};
-  fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-  fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+  for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    VkSemaphoreCreateInfo sem_create_info{};
+    sem_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-  VK_CHECK(vkCreateSemaphore(context.device.logical_device, &sem_create_info,
-                             nullptr, &context.image_available_semaphore));
-  VK_CHECK(vkCreateSemaphore(context.device.logical_device, &sem_create_info,
-                             nullptr, &context.render_finished_semaphore));
-  VK_CHECK(vkCreateFence(context.device.logical_device, &fence_create_info,
-                         nullptr, &context.in_flight_fence));
+    VkFenceCreateInfo fence_create_info{};
+    fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
+    VK_CHECK(vkCreateSemaphore(context.device.logical_device, &sem_create_info,
+                               nullptr, &context.image_available_semaphore[i]));
+    VK_CHECK(vkCreateSemaphore(context.device.logical_device, &sem_create_info,
+                               nullptr, &context.render_finished_semaphore[i]));
+    VK_CHECK(vkCreateFence(context.device.logical_device, &fence_create_info,
+                           nullptr, &context.in_flight_fence[i]));
+  }
   return;
 }
 
 void renderer_backend_draw_frame() {
-  vkWaitForFences(context.device.logical_device, 1, &context.in_flight_fence,
-                  VK_TRUE, UINT64_MAX);
-  vkResetFences(context.device.logical_device, 1, &context.in_flight_fence);
+  vkWaitForFences(context.device.logical_device, 1,
+                  &context.in_flight_fence[context.current_frame], VK_TRUE,
+                  UINT64_MAX);
+  vkResetFences(context.device.logical_device, 1,
+                &context.in_flight_fence[context.current_frame]);
   uint32_t image_index;
-  vkAcquireNextImageKHR(context.device.logical_device, context.swapchain.handle,
-                        UINT64_MAX, context.image_available_semaphore,
-                        VK_NULL_HANDLE, &image_index);
-  vkResetCommandBuffer(context.command_buffer,
+  vkAcquireNextImageKHR(
+      context.device.logical_device, context.swapchain.handle, UINT64_MAX,
+      context.image_available_semaphore[context.current_frame], VK_NULL_HANDLE,
+      &image_index);
+  vkResetCommandBuffer(context.command_buffer[context.current_frame],
                        0);  // nothing special with command buffer for now;
   renderer_backend_draw_image(image_index);
   // time to submit commands now
   VkSubmitInfo submit_info{};
   submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-  VkSemaphore wait_semaphores[] = {context.image_available_semaphore};
+  VkSemaphore wait_semaphores[] = {
+      context.image_available_semaphore[context.current_frame]};
   VkPipelineStageFlags wait_stages[] = {
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
   submit_info.waitSemaphoreCount = 1;
@@ -63,15 +72,16 @@ void renderer_backend_draw_frame() {
 
   // Specify which command buffers we're submitting
   submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &context.command_buffer;
+  submit_info.pCommandBuffers = &context.command_buffer[context.current_frame];
 
   // Specify which semaphore to signal once done
-  VkSemaphore signal_semaphores = {context.render_finished_semaphore};
+  VkSemaphore signal_semaphores = {
+      context.render_finished_semaphore[context.current_frame]};
   submit_info.signalSemaphoreCount = 1;
   submit_info.pSignalSemaphores = &signal_semaphores;
 
   VK_CHECK(vkQueueSubmit(context.device.graphics_queue, 1, &submit_info,
-                         context.in_flight_fence));
+                         context.in_flight_fence[context.current_frame]));
 
   VkPresentInfoKHR present_info{};
   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -86,6 +96,9 @@ void renderer_backend_draw_frame() {
 
   present_info.pResults = nullptr;
   vkQueuePresentKHR(context.device.present_queue, &present_info);
+
+  // ONCE DONE WITH FRAME, INCREMENT HERE
+  context.current_frame = (context.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 // TODO: Rename this as 'draw image' is a slight misnomer as it does do that
@@ -97,7 +110,8 @@ void renderer_backend_draw_image(uint32_t image_index) {
   begin_info.flags = 0;
   begin_info.pInheritanceInfo = nullptr;
 
-  VK_CHECK(vkBeginCommandBuffer(context.command_buffer, &begin_info));
+  VK_CHECK(vkBeginCommandBuffer(context.command_buffer[context.current_frame],
+                                &begin_info));
   // Begin renderpass
   VkRenderPassBeginInfo render_pass_info{};
   render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -110,12 +124,12 @@ void renderer_backend_draw_image(uint32_t image_index) {
   render_pass_info.clearValueCount = 1;
   render_pass_info.pClearValues = &clear_color;
 
-  vkCmdBeginRenderPass(context.command_buffer, &render_pass_info,
-                       VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdBeginRenderPass(context.command_buffer[context.current_frame],
+                       &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
 
   // Bind pipeline
-  vkCmdBindPipeline(context.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    context.pipeline.handle);
+  vkCmdBindPipeline(context.command_buffer[context.current_frame],
+                    VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline.handle);
 
   // Create viewport and scissor since we specified dynamic earlier
   VkViewport viewport{};
@@ -125,20 +139,22 @@ void renderer_backend_draw_image(uint32_t image_index) {
   viewport.height = static_cast<float>(context.swapchain.extent.height);
   viewport.minDepth = 0.0f;
   viewport.maxDepth = 1.0f;
-  vkCmdSetViewport(context.command_buffer, 0, 1, &viewport);
+  vkCmdSetViewport(context.command_buffer[context.current_frame], 0, 1,
+                   &viewport);
 
   VkRect2D scissor{};
   scissor.offset = {0, 0};
   scissor.extent = context.swapchain.extent;
-  vkCmdSetScissor(context.command_buffer, 0, 1, &scissor);
+  vkCmdSetScissor(context.command_buffer[context.current_frame], 0, 1,
+                  &scissor);
 
   // WOOOOOOO
   // TODO: make this like, way more configurable
-  vkCmdDraw(context.command_buffer, 3, 1, 0, 0);
+  vkCmdDraw(context.command_buffer[context.current_frame], 3, 1, 0, 0);
 
-  vkCmdEndRenderPass(context.command_buffer);
+  vkCmdEndRenderPass(context.command_buffer[context.current_frame]);
 
-  VK_CHECK(vkEndCommandBuffer(context.command_buffer));
+  VK_CHECK(vkEndCommandBuffer(context.command_buffer[context.current_frame]));
 }
 
 // --------- SETUP / TEARDOWN FUNCTIONS ---------------
@@ -152,15 +168,16 @@ void create_command_pool() {
   return;
 }
 void create_command_buffer() {
+  context.command_buffer.resize(MAX_FRAMES_IN_FLIGHT);
   VkCommandBufferAllocateInfo cmdbuffer_alloc_info{};
   cmdbuffer_alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   cmdbuffer_alloc_info.commandPool = context.command_pool;
   cmdbuffer_alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  cmdbuffer_alloc_info.commandBufferCount = 1;
+  cmdbuffer_alloc_info.commandBufferCount = context.command_buffer.size();
 
   VK_CHECK(vkAllocateCommandBuffers(context.device.logical_device,
                                     &cmdbuffer_alloc_info,
-                                    &context.command_buffer));
+                                    context.command_buffer.data()));
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
@@ -195,6 +212,7 @@ void generate_framebuffers(backend_context *context) {
 bool renderer_backend_initialize(platform_state *plat_state) {
   // Initialize Vulkan Instance
 
+  context.current_frame = 0;
   VkApplicationInfo appInfo = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
   appInfo.apiVersion = VK_API_VERSION_1_2;
   appInfo.pApplicationName = "Parallax";
@@ -316,22 +334,22 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   create_command_pool();
   create_command_buffer();
 
-  create_sync_objets();
+  create_sync_objects();
 
   return true;
 }
 
 void renderer_backend_shutdown() {
   // Opposite order of creation
+  for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    vkDestroyFence(context.device.logical_device, context.in_flight_fence[i],
+                   nullptr);
+    vkDestroySemaphore(context.device.logical_device,
+                       context.image_available_semaphore[i], nullptr);
 
-  vkDestroyFence(context.device.logical_device, context.in_flight_fence,
-                 nullptr);
-  vkDestroySemaphore(context.device.logical_device,
-                     context.image_available_semaphore, nullptr);
-
-  vkDestroySemaphore(context.device.logical_device,
-                     context.render_finished_semaphore, nullptr);
-
+    vkDestroySemaphore(context.device.logical_device,
+                       context.render_finished_semaphore[i], nullptr);
+  }
   vkDestroyCommandPool(context.device.logical_device, context.command_pool,
                        nullptr);
   for (auto framebuffer : context.swapchain.framebuffers) {
