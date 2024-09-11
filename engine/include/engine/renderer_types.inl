@@ -50,7 +50,7 @@ typedef struct vulkan_swapchain {
   uint32_t image_count;
   std::vector<VkImage> images;
   std::vector<VkImageView> views;  // images not accessed directly in Vulkan
-
+  std::vector<VkFramebuffer> framebuffers;
 } vulkan_swapchain;
 
 typedef struct vulkan_pipeline {
@@ -79,10 +79,15 @@ typedef struct backend_context {
   VkSurfaceKHR surface;
   vulkan_pipeline pipeline;
   vulkan_renderpass main_renderpass;
+  VkCommandPool command_pool;
+  VkCommandBuffer command_buffer;
 #ifndef NDEBUG
   VkDebugUtilsMessengerEXT debug_messenger;
 #endif
   vulkan_swapchain swapchain;
+  VkSemaphore image_available_semaphore;
+  VkSemaphore render_finished_semaphore;
+  VkFence in_flight_fence;
 } backend_context;
 
 #define VK_CHECK(expr)               \

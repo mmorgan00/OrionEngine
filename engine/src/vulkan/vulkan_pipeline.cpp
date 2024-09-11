@@ -9,7 +9,7 @@ void vulkan_pipeline_create(backend_context* context,
                             vulkan_renderpass* renderpass,
                             VkShaderModule vert_shader,
                             VkShaderModule frag_shader,
-                            vulkan_pipeline out_pipeline) {
+                            vulkan_pipeline* out_pipeline) {
   // Create the pipeline stages
   VkPipelineShaderStageCreateInfo
       vss_info{};  // vert shader stage(vss) create info.
@@ -146,7 +146,7 @@ void vulkan_pipeline_create(backend_context* context,
 
   VK_CHECK(vkCreatePipelineLayout(context->device.logical_device,
                                   &pipeline_layout_info, nullptr,
-                                  &out_pipeline.layout));
+                                  &out_pipeline->layout));
 
   VkGraphicsPipelineCreateInfo pipeline_create_info{};
   pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -161,7 +161,7 @@ void vulkan_pipeline_create(backend_context* context,
   pipeline_create_info.pDepthStencilState = nullptr;
   pipeline_create_info.pColorBlendState = &color_blending;
   pipeline_create_info.pDynamicState = &dynamic_state;
-  pipeline_create_info.layout = out_pipeline.layout;
+  pipeline_create_info.layout = out_pipeline->layout;
   pipeline_create_info.renderPass = renderpass->handle;
   pipeline_create_info.subpass = 0;  // index
   pipeline_create_info.basePipelineHandle = nullptr;
@@ -169,7 +169,7 @@ void vulkan_pipeline_create(backend_context* context,
 
   VK_CHECK(vkCreateGraphicsPipelines(context->device.logical_device,
                                      VK_NULL_HANDLE, 1, &pipeline_create_info,
-                                     nullptr, &out_pipeline.handle));
+                                     nullptr, &out_pipeline->handle));
   OE_LOG(LOG_LEVEL_INFO, "Created graphics pipeline");
 
   // Not needed after bound to pipeline

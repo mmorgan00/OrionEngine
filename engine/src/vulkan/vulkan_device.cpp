@@ -1,11 +1,12 @@
 #include "engine/vulkan/vulkan_device.h"
 
-#include "engine/logger.h"
-#include "engine/renderer_types.inl"
-
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include <vector>
+
+#include "engine/logger.h"
+#include "engine/renderer_types.inl"
 
 typedef struct vulkan_physical_device_requirements {
   bool graphics;
@@ -30,7 +31,6 @@ typedef struct vulkan_physical_device_queue_family_info {
 void vulkan_device_query_swapchain_support(
     VkPhysicalDevice physical_device, VkSurfaceKHR surface,
     vulkan_swapchain_support_info *out_support_info) {
-
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface,
                                             &out_support_info->capabilities);
 
@@ -59,7 +59,6 @@ bool physical_device_meets_requirements(
     const vulkan_physical_device_requirements *requirements,
     vulkan_physical_device_queue_family_info *out_queue_info,
     vulkan_swapchain_support_info *out_swapchain_support) {
-
   // Evaluate device properties to see if it meets the needs of our app
   out_queue_info->graphics_family_index = -1;
   out_queue_info->present_family_index = -1;
@@ -157,7 +156,6 @@ bool physical_device_meets_requirements(
     VK_CHECK(vkEnumerateDeviceExtensionProperties(
         device, 0, &available_extension_count, 0));
     if (available_extension_count != 0) {
-
       available_extensions =
           std::vector<VkExtensionProperties>(available_extension_count);
 
@@ -254,25 +252,25 @@ bool select_physical_device(backend_context *context) {
 
     if (result) {
       OE_LOG(LOG_LEVEL_INFO, "Selected device: '%s'.", properties.deviceName);
-#ifndef NDEBUG // We don't need to print all the details in release
+#ifndef NDEBUG  // We don't need to print all the details in release
       // GPU type, etc.
       switch (properties.deviceType) {
-      default:
-      case VK_PHYSICAL_DEVICE_TYPE_OTHER:
-        OE_LOG(LOG_LEVEL_INFO, "GPU type is Unknown.");
-        break;
-      case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
-        OE_LOG(LOG_LEVEL_INFO, "GPU type is Integrated.");
-        break;
-      case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
-        OE_LOG(LOG_LEVEL_INFO, "GPU type is Discrete.");
-        break;
-      case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
-        OE_LOG(LOG_LEVEL_INFO, "GPU type is Virtual.");
-        break;
-      case VK_PHYSICAL_DEVICE_TYPE_CPU:
-        OE_LOG(LOG_LEVEL_INFO, "GPU type is CPU.");
-        break;
+        default:
+        case VK_PHYSICAL_DEVICE_TYPE_OTHER:
+          OE_LOG(LOG_LEVEL_INFO, "GPU type is Unknown.");
+          break;
+        case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+          OE_LOG(LOG_LEVEL_INFO, "GPU type is Integrated.");
+          break;
+        case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+          OE_LOG(LOG_LEVEL_INFO, "GPU type is Discrete.");
+          break;
+        case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+          OE_LOG(LOG_LEVEL_INFO, "GPU type is Virtual.");
+          break;
+        case VK_PHYSICAL_DEVICE_TYPE_CPU:
+          OE_LOG(LOG_LEVEL_INFO, "GPU type is CPU.");
+          break;
       }
 
       OE_LOG(LOG_LEVEL_INFO, "GPU Driver version: %d.%d.%d",
@@ -324,7 +322,6 @@ bool select_physical_device(backend_context *context) {
 }
 
 bool vulkan_device_create(backend_context *context) {
-
   // Select physical device
   if (!select_physical_device(context)) {
     OE_LOG(LOG_LEVEL_FATAL, "Failed to select physical device");
@@ -373,7 +370,7 @@ bool vulkan_device_create(backend_context *context) {
   // Request device features.
   // TODO: should be config driven
   VkPhysicalDeviceFeatures device_features = {};
-  device_features.samplerAnisotropy = VK_TRUE; // Request anistrophy
+  device_features.samplerAnisotropy = VK_TRUE;  // Request anistrophy
 
   VkDeviceCreateInfo device_create_info = {
       VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
@@ -394,11 +391,18 @@ bool vulkan_device_create(backend_context *context) {
 
   OE_LOG(LOG_LEVEL_INFO, "Vulkan logical device created!");
 
+  // Get the queues
+  vkGetDeviceQueue(context->device.logical_device,
+                   context->device.graphics_queue_index, 0,
+                   &context->device.graphics_queue);
+  vkGetDeviceQueue(context->device.logical_device,
+                   context->device.present_queue_index, 0,
+                   &context->device.present_queue);
+
   return true;
 }
 
 bool vulkan_device_create_logical_device(backend_context *context) {
-
   const float priority = 1.0f;
   std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
   std::vector<uint32_t> queue_family_indices = {

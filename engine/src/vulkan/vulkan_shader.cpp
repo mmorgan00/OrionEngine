@@ -41,7 +41,7 @@ vulkan_object_shader vulkan_shader_create(backend_context* context,
 
   vulkan_pipeline_create(context, &context->main_renderpass,
                          vos.stages[0].handle, vos.stages[1].handle,
-                         context->pipeline);
+                         &context->pipeline);
 
   return vos;
 }

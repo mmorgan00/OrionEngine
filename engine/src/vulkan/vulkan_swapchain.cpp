@@ -1,14 +1,13 @@
 #include "engine/vulkan/vulkan_swapchain.h"
 
-#include "engine/logger.h"
-
-#include <algorithm> // Necessary for std::clamp
-#include <limits>    // Necessary for std::numeric_limits
+#include <algorithm>  // Necessary for std::clamp
+#include <limits>     // Necessary for std::numeric_limits
 #include <vector>
+
+#include "engine/logger.h"
 
 VkSurfaceFormatKHR swapchain_select_surface_format(
     const std::vector<VkSurfaceFormatKHR> available_formats) {
-
   for (const auto &format : available_formats) {
     if (format.format == VK_FORMAT_B8G8R8A8_SRGB &&
         format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
@@ -19,10 +18,8 @@ VkSurfaceFormatKHR swapchain_select_surface_format(
   return available_formats[0];
 }
 
-VkPresentModeKHR
-swapchain_select_present_mode(uint32_t present_mode_count,
-                              VkPresentModeKHR *available_present_modes) {
-
+VkPresentModeKHR swapchain_select_present_mode(
+    uint32_t present_mode_count, VkPresentModeKHR *available_present_modes) {
   for (int i = 0; i < present_mode_count; i++) {
     if (available_present_modes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
       OE_LOG(LOG_LEVEL_INFO, "Found mailbox present mode, selecting...");
@@ -34,9 +31,8 @@ swapchain_select_present_mode(uint32_t present_mode_count,
   return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D
-swapchain_select_extent(GLFWwindow *window,
-                        const VkSurfaceCapabilitiesKHR capabilities) {
+VkExtent2D swapchain_select_extent(
+    GLFWwindow *window, const VkSurfaceCapabilitiesKHR capabilities) {
   if (capabilities.currentExtent.width !=
       std::numeric_limits<uint32_t>::max()) {
     return capabilities.currentExtent;
@@ -59,7 +55,6 @@ swapchain_select_extent(GLFWwindow *window,
 }
 
 void vulkan_swapchain_create(backend_context *context) {
-
   // Going to reference this a lot, so for convenience sake
   auto sc_s = context->device.swapchain_support;
 
@@ -109,9 +104,9 @@ void vulkan_swapchain_create(backend_context *context) {
   create_info.preTransform = sc_s.capabilities.currentTransform;
   create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   create_info.presentMode = present_mode;
-  create_info.clipped = VK_TRUE; // Clips pixels behind other windows.
+  create_info.clipped = VK_TRUE;  // Clips pixels behind other windows.
   create_info.oldSwapchain =
-      VK_NULL_HANDLE; // Only a 'recreate swapchain' type of thing
+      VK_NULL_HANDLE;  // Only a 'recreate swapchain' type of thing
 
   VK_CHECK(vkCreateSwapchainKHR(context->device.logical_device, &create_info,
                                 nullptr, &context->swapchain.handle));
@@ -120,6 +115,7 @@ void vulkan_swapchain_create(backend_context *context) {
   vkGetSwapchainImagesKHR(context->device.logical_device,
                           context->swapchain.handle, &image_count, nullptr);
   context->swapchain.images.resize(image_count);
+  context->swapchain.image_count = image_count;
   vkGetSwapchainImagesKHR(context->device.logical_device,
                           context->swapchain.handle, &image_count,
                           context->swapchain.images.data());

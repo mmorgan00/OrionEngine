@@ -4,5 +4,5 @@
 #include "engine/renderer_types.inl"
 
 void vulkan_renderpass_create(backend_context* context,
-                              vulkan_renderpass out_renderpass);
+                              vulkan_renderpass* out_renderpass);
 #endif

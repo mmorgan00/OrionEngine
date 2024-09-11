@@ -6,7 +6,7 @@
 #include "engine/renderer_types.inl"
 
 void vulkan_renderpass_create(backend_context* context,
-                              vulkan_renderpass out_renderpass) {
+                              vulkan_renderpass* out_renderpass) {
   VkAttachmentDescription color_attachment{};
 
   color_attachment.format = context->swapchain.image_format;
@@ -27,6 +27,13 @@ void vulkan_renderpass_create(backend_context* context,
   color_attachment_ref.attachment = 0;
   color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+  VkSubpassDependency dependency{};
+  dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+  dependency.dstSubpass = 0;
+  dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  dependency.srcAccessMask = 0;
+  dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+  dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
   // Just one subpass for now. We'll revist for post-processing
   VkSubpassDescription subpass{};
   subpass.colorAttachmentCount = 1;
@@ -38,8 +45,10 @@ void vulkan_renderpass_create(backend_context* context,
   renderpass_create_info.pAttachments = &color_attachment;
   renderpass_create_info.subpassCount = 1;
   renderpass_create_info.pSubpasses = &subpass;
+  renderpass_create_info.dependencyCount = 1;
+  renderpass_create_info.pDependencies = &dependency;
 
   VK_CHECK(vkCreateRenderPass(context->device.logical_device,
                               &renderpass_create_info, nullptr,
-                              &out_renderpass.handle));
+                              &out_renderpass->handle));
 }
