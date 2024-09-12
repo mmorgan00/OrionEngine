@@ -10,6 +10,7 @@
 #include "engine/logger.h"
 #include "engine/platform.h"
 #include "engine/renderer_types.inl"
+#include "engine/vulkan/vulkan_buffer.h"
 #include "engine/vulkan/vulkan_device.h"
 #include "engine/vulkan/vulkan_renderpass.h"
 #include "engine/vulkan/vulkan_shader.h"
@@ -130,6 +131,11 @@ void renderer_backend_draw_image(uint32_t image_index) {
   // Bind pipeline
   vkCmdBindPipeline(context.command_buffer[context.current_frame],
                     VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline.handle);
+
+  VkBuffer vertex_buffers[] = {context.vert_buff};
+  VkDeviceSize offsets[] = {0};
+  vkCmdBindVertexBuffers(context.command_buffer[context.current_frame], 0, 1,
+                         vertex_buffers, offsets);
 
   // Create viewport and scissor since we specified dynamic earlier
   VkViewport viewport{};
@@ -336,11 +342,20 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 
   create_sync_objects();
 
+  // TODO: Buffers shouldn't be hardcoded like this. Revist after geometry
+  // system
+  vulkan_buffer_create(&context, vertices, &context.vert_buff);
+
   return true;
 }
 
 void renderer_backend_shutdown() {
   // Opposite order of creation
+
+  // cleanup any buffers
+  // vkDestroyBuffer(device, vertexBuffer, nullptr);
+  // vkFreeMemory(device, vertexBufferMemory, nullptr);
+
   vulkan_swapchain_destroy(&context);
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     vkDestroyFence(context.device.logical_device, context.in_flight_fence[i],

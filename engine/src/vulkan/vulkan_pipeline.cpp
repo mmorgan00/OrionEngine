@@ -39,17 +39,18 @@ void vulkan_pipeline_create(backend_context* context,
       static_cast<uint32_t>(dynamic_states.size());
   dynamic_state.pDynamicStates = dynamic_states.data();
 
-  // TODO: Enable vertex buffer loading. Hard coding for now just to get things
-  // running
+  // get vertex descriptions
+  auto binding_description = Vertex::get_binding_description();
+  auto attrib_description = Vertex::get_attribute_descriptions();
 
   VkPipelineVertexInputStateCreateInfo vertex_input_info{};
   vertex_input_info.sType =
       VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  vertex_input_info.vertexBindingDescriptionCount = 0;
-  vertex_input_info.pVertexBindingDescriptions = nullptr;  // Optional
-  vertex_input_info.vertexAttributeDescriptionCount = 0;
-  vertex_input_info.pVertexAttributeDescriptions = nullptr;
-
+  vertex_input_info.vertexBindingDescriptionCount = 1;
+  vertex_input_info.vertexAttributeDescriptionCount =
+      static_cast<uint32_t>(attrib_description.size());
+  vertex_input_info.pVertexBindingDescriptions = &binding_description;
+  vertex_input_info.pVertexAttributeDescriptions = attrib_description.data();
   // We're triangle gamers here
   VkPipelineInputAssemblyStateCreateInfo input_assembly{};
   input_assembly.sType =
