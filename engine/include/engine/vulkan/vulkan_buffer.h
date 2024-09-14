@@ -13,6 +13,7 @@ void vulkan_buffer_create(backend_context* context, VkBufferUsageFlags usage,
                           vulkan_buffer* out_buffer);
 
 void vulkan_buffer_load_data(backend_context* context, vulkan_buffer* buffer,
-                             long offset, long size, uint32_t flags,
-                             const void* data);
+                             long offset, uint32_t flags, long size,
+                             const void* buff_data);
+
 #endif

@@ -21,6 +21,16 @@ uint32_t find_memory_type(backend_context* context, uint32_t type_filter,
   throw std::runtime_error("Failed to find suitable memory for buffer");
 }
 
+void vulkan_buffer_load_data(backend_context* context, vulkan_buffer* buffer,
+                             long offset, uint32_t flags, long size,
+                             const void* buff_data) {
+  void* data;
+  vkMapMemory(context->device.logical_device, buffer->memory, 0, size, 0,
+              &data);
+  memcpy(data, buff_data, (size_t)size);
+  vkUnmapMemory(context->device.logical_device, buffer->memory);
+}
+
 void vulkan_buffer_create(backend_context* context, VkBufferUsageFlags usage,
                           VkMemoryPropertyFlags properties,
                           std::vector<Vertex> vertices,
@@ -49,25 +59,14 @@ void vulkan_buffer_create(backend_context* context, VkBufferUsageFlags usage,
   VK_CHECK(vkAllocateMemory(context->device.logical_device, &alloc_info,
                             nullptr, &out_buffer->memory));
 
-  vkBindBufferMemory(context->device.logical_device, *out_buffer, buffer_memory,
-                     0);
-
-  // map memory
-  void* data;
-  vkMapMemory(context->device.logical_device, buffer_memory, 0,
-              buffer_info.size, 0, &data);
-  memcpy(data, vertices.data(), (size_t)buffer_info.size);
-  vkUnmapMemory(context->device.logical_device, buffer_memory);
   vkBindBufferMemory(context->device.logical_device, out_buffer->handle,
                      out_buffer->memory, 0);
-}
 
-void vulkan_buffer_load_data(backend_context* context, vulkan_buffer* buffer,
-                             long offset, long size, uint32_t flags,
-                             const void* data) {
-  void* data_ptr;
-  vkMapMemory(context->device.logical_device, buffer->memory, 0, size, 0,
-              &data_ptr);
-  memcpy(data_ptr, data, size);
-  vkUnmapMemory(context->device.logical_device, buffer->memory);
+  // TODO: From here down should be a separate function call
+  // map memory
+  // void* data;
+  // vkMapMemory(context->device.logical_device, out_buffer->memory, 0,
+  //             buffer_info.size, 0, &data);
+  // memcpy(data, vertices.data(), (size_t)buffer_info.size);
+  // vkUnmapMemory(context->device.logical_device, out_buffer->memory);
 }

@@ -349,9 +349,9 @@ bool renderer_backend_initialize(platform_state *plat_state) {
                            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                        vertices, &context.vert_buff);
 
-  vulkan_buffer_load_data(&context, &context.vert_buff, 0, vertices.size(), 0,
+  vulkan_buffer_load_data(&context, &context.vert_buff, 0, 0,
+                          sizeof(vertices[0]) * vertices.size(),
                           vertices.data());
-
   return true;
 }
 
@@ -359,9 +359,10 @@ void renderer_backend_shutdown() {
   // Opposite order of creation
 
   // cleanup any buffers
-  // vkDestroyBuffer(device, vertexBuffer, nullptr);
-  // vkFreeMemory(device, vertexBufferMemory, nullptr);
-
+  vkDestroyBuffer(context.device.logical_device, context.vert_buff.handle,
+                  nullptr);
+  vkFreeMemory(context.device.logical_device, context.vert_buff.memory,
+               nullptr);
   vulkan_swapchain_destroy(&context);
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     vkDestroyFence(context.device.logical_device, context.in_flight_fence[i],
