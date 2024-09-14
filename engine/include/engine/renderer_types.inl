@@ -110,6 +110,11 @@ typedef struct vulkan_shader_stage {
 
 #define OBJECT_SHADER_STAGE_COUNT 2  // vertex, fragment for now
 
+typedef struct vulkan_buffer {
+  VkBuffer handle;
+  VkDeviceMemory memory;
+} vulkan_buffer;
+
 typedef struct vulkan_object_shader {
   // vertex, fragment
   vulkan_shader_stage stages[OBJECT_SHADER_STAGE_COUNT];
@@ -125,7 +130,7 @@ typedef struct backend_context {
   vulkan_renderpass main_renderpass;
   VkCommandPool command_pool;
   std::vector<VkCommandBuffer> command_buffer;
-  VkBuffer vert_buff;
+  vulkan_buffer vert_buff;
 #ifndef NDEBUG
   VkDebugUtilsMessengerEXT debug_messenger;
 #endif

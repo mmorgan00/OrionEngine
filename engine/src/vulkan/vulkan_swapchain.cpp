@@ -93,8 +93,9 @@ void create(backend_context *context) {
       context->device.present_queue_index) {
     create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
     create_info.queueFamilyIndexCount = 2;
-    uint32_t queue_family_indices[] = {context->device.graphics_queue_index,
-                                       context->device.present_queue_index};
+    uint32_t queue_family_indices[] = {
+        static_cast<uint32_t>(context->device.graphics_queue_index),
+        static_cast<uint32_t>(context->device.present_queue_index)};
     create_info.pQueueFamilyIndices = queue_family_indices;
   } else {
     create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;

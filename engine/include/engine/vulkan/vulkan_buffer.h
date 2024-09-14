@@ -7,7 +7,12 @@
 
 #include "engine/renderer_types.inl"
 
-void vulkan_buffer_create(backend_context* context,
-                          std::vector<Vertex> vertices, VkBuffer* out_buffer);
+void vulkan_buffer_create(backend_context* context, VkBufferUsageFlags usage,
+                          VkMemoryPropertyFlags properties,
+                          std::vector<Vertex> vertices,
+                          vulkan_buffer* out_buffer);
 
+void vulkan_buffer_load_data(backend_context* context, vulkan_buffer* buffer,
+                             long offset, long size, uint32_t flags,
+                             const void* data);
 #endif

@@ -132,7 +132,7 @@ void renderer_backend_draw_image(uint32_t image_index) {
   vkCmdBindPipeline(context.command_buffer[context.current_frame],
                     VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline.handle);
 
-  VkBuffer vertex_buffers[] = {context.vert_buff};
+  VkBuffer vertex_buffers[] = {context.vert_buff.handle};
   VkDeviceSize offsets[] = {0};
   vkCmdBindVertexBuffers(context.command_buffer[context.current_frame], 0, 1,
                          vertex_buffers, offsets);
@@ -344,7 +344,13 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 
   // TODO: Buffers shouldn't be hardcoded like this. Revist after geometry
   // system
-  vulkan_buffer_create(&context, vertices, &context.vert_buff);
+  vulkan_buffer_create(&context, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                       vertices, &context.vert_buff);
+
+  vulkan_buffer_load_data(&context, &context.vert_buff, 0, vertices.size(), 0,
+                          vertices.data());
 
   return true;
 }
