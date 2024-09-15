@@ -344,14 +344,25 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 
   // TODO: Buffers shouldn't be hardcoded like this. Revist after geometry
   // system
-  vulkan_buffer_create(&context, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+  vulkan_buffer staging;
+  vulkan_buffer_create(&context, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                       vertices, &context.vert_buff);
+                       sizeof(vertices[0]) * vertices.size(), &staging);
 
-  vulkan_buffer_load_data(&context, &context.vert_buff, 0, 0,
+  vulkan_buffer_load_data(&context, &staging, 0, 0,
                           sizeof(vertices[0]) * vertices.size(),
                           vertices.data());
+
+  vulkan_buffer_create(
+      &context,
+      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+      sizeof(vertices[0]) * vertices.size(), &context.vert_buff);
+
+  vulkan_buffer_copy(&context, &staging, &context.vert_buff,
+                     sizeof(vertices[0]) * vertices.size());
+
   return true;
 }
 

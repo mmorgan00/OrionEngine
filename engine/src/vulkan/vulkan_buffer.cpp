@@ -30,14 +30,55 @@ void vulkan_buffer_load_data(backend_context* context, vulkan_buffer* buffer,
   memcpy(data, buff_data, (size_t)size);
   vkUnmapMemory(context->device.logical_device, buffer->memory);
 }
+void vulkan_buffer_copy(backend_context* context, vulkan_buffer* source,
+                        vulkan_buffer* target, VkDeviceSize size) {
+  // Going to use a one time command buffer to copy and immediately start
+  // recording
+  VkCommandBufferAllocateInfo alloc_info{};
+  alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  alloc_info.commandPool = context->command_pool;
+  alloc_info.commandBufferCount = 1;
 
+  VkCommandBuffer command_buffer;
+  vkAllocateCommandBuffers(context->device.logical_device, &alloc_info,
+                           &command_buffer);
+
+  VkCommandBufferBeginInfo beginInfo{};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  vkBeginCommandBuffer(command_buffer, &beginInfo);
+
+  // Perform the copy
+  VkBufferCopy copy_info{};
+  copy_info.srcOffset = 0;
+  copy_info.dstOffset = 0;
+  copy_info.size = size;
+
+  vkCmdCopyBuffer(command_buffer, source->handle, target->handle, 1,
+                  &copy_info);
+  vkEndCommandBuffer(command_buffer);
+
+  VkSubmitInfo submit_info{};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submit_info.commandBufferCount = 1;
+  submit_info.pCommandBuffers = &command_buffer;
+
+  vkQueueSubmit(context->device.graphics_queue, 1, &submit_info,
+                VK_NULL_HANDLE);
+  vkQueueWaitIdle(context->device.graphics_queue);
+
+  vkFreeCommandBuffers(context->device.logical_device, context->command_pool, 1,
+                       &command_buffer);
+  return;
+}
 void vulkan_buffer_create(backend_context* context, VkBufferUsageFlags usage,
-                          VkMemoryPropertyFlags properties,
-                          std::vector<Vertex> vertices,
+                          VkMemoryPropertyFlags properties, VkDeviceSize size,
                           vulkan_buffer* out_buffer) {
   VkBufferCreateInfo buffer_info{};
   buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  buffer_info.size = sizeof(vertices[0]) * vertices.size();
+  buffer_info.size = size;
   buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
   buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 

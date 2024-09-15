@@ -3,14 +3,14 @@
 
 #include <vulkan/vulkan_core.h>
 
-#include <vector>
-
 #include "engine/renderer_types.inl"
 
 void vulkan_buffer_create(backend_context* context, VkBufferUsageFlags usage,
-                          VkMemoryPropertyFlags properties,
-                          std::vector<Vertex> vertices,
+                          VkMemoryPropertyFlags properties, VkDeviceSize size,
                           vulkan_buffer* out_buffer);
+
+void vulkan_buffer_copy(backend_context* context, vulkan_buffer* source,
+                        vulkan_buffer* target, VkDeviceSize size);
 
 void vulkan_buffer_load_data(backend_context* context, vulkan_buffer* buffer,
                              long offset, uint32_t flags, long size,
