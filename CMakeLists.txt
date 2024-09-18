@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Find GLFW package
+set(GLFW_USE_WAYLAND ON)
 find_package(glfw3 REQUIRED)
 
 # Find GLM package

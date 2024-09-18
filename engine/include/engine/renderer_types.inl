@@ -45,10 +45,11 @@ typedef struct Vertex {
 
 // TODO: REMOVE THIS. WE JUST WANT TO DRAW SOME GEOMETRY FOR NOW. /MAYBE/ we'll
 // keep it for texture coords interleaved but big if
-const std::vector<Vertex> vertices = {{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                                      {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-                                      {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
-
+const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+                                      {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+                                      {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+                                      {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 // TODO: Move these all to a 'vulkan types'. We should abstract more so we can
 // support other APIs potentially
 
@@ -131,6 +132,7 @@ typedef struct backend_context {
   VkCommandPool command_pool;
   std::vector<VkCommandBuffer> command_buffer;
   vulkan_buffer vert_buff;
+  vulkan_buffer index_buff;
 #ifndef NDEBUG
   VkDebugUtilsMessengerEXT debug_messenger;
 #endif

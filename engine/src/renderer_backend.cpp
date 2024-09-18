@@ -137,6 +137,9 @@ void renderer_backend_draw_image(uint32_t image_index) {
   vkCmdBindVertexBuffers(context.command_buffer[context.current_frame], 0, 1,
                          vertex_buffers, offsets);
 
+  vkCmdBindIndexBuffer(context.command_buffer[context.current_frame],
+                       context.index_buff.handle, 0, VK_INDEX_TYPE_UINT16);
+
   // Create viewport and scissor since we specified dynamic earlier
   VkViewport viewport{};
   viewport.x = 0.0f;
@@ -156,8 +159,8 @@ void renderer_backend_draw_image(uint32_t image_index) {
 
   // WOOOOOOO
   // TODO: make this like, way more configurable
-  vkCmdDraw(context.command_buffer[context.current_frame], 3, 1, 0, 0);
-
+  vkCmdDrawIndexed(context.command_buffer[context.current_frame],
+                   static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
   vkCmdEndRenderPass(context.command_buffer[context.current_frame]);
 
   VK_CHECK(vkEndCommandBuffer(context.command_buffer[context.current_frame]));
@@ -344,6 +347,7 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 
   // TODO: Buffers shouldn't be hardcoded like this. Revist after geometry
   // system
+  // Vertices
   vulkan_buffer staging;
   vulkan_buffer_create(&context, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
@@ -353,7 +357,6 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   vulkan_buffer_load_data(&context, &staging, 0, 0,
                           sizeof(vertices[0]) * vertices.size(),
                           vertices.data());
-
   vulkan_buffer_create(
       &context,
       VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -362,6 +365,26 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 
   vulkan_buffer_copy(&context, &staging, &context.vert_buff,
                      sizeof(vertices[0]) * vertices.size());
+
+  // Indices
+  vulkan_buffer index_staging;
+  vulkan_buffer_create(&context, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                       sizeof(indices[0]) * indices.size(), &index_staging);
+  vulkan_buffer_create(
+      &context,
+      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, sizeof(indices[0]) * indices.size(),
+      &context.index_buff);
+
+  vulkan_buffer_load_data(&context, &index_staging, 0, 0,
+                          sizeof(indices[0]) * indices.size(), indices.data());
+
+  vulkan_buffer_copy(&context, &index_staging, &context.index_buff,
+                     sizeof(indices[0]) * indices.size());
+
+  // TODO : vulkan_buffer_destroy staging
 
   return true;
 }

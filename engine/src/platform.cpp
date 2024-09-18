@@ -22,7 +22,7 @@ platform_state *platform_initialize() {
   };
 
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+  glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
   GLFWmonitor *primary = glfwGetPrimaryMonitor();
   const GLFWvidmode *mode = glfwGetVideoMode(primary);
