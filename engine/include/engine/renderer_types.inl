@@ -58,8 +58,12 @@ const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
 const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 // TODO: Move these all to a 'vulkan types'. We should abstract more so we can
 // support other APIs potentially
-
 #define MAX_FRAMES_IN_FLIGHT 2
+
+typedef struct vulkan_image {
+  VkImage handle;
+  VkDeviceMemory memory;
+} vulkan_image;
 
 typedef struct vulkan_swapchain_support_info {
   VkSurfaceCapabilitiesKHR capabilities;

@@ -6,7 +6,7 @@
 #include "engine/platform.h"
 #include "engine/vulkan/vulkan_buffer.h"
 
-void vulkan_image_create(backend_context* context) {
+void vulkan_image_create(backend_context* context, vulkan_image* out_image) {
   int width, height, channels;
   void* pixels;
   platform_open_image("resources/default", &width, &height, &channels, &pixels);
@@ -19,10 +19,6 @@ void vulkan_image_create(backend_context* context) {
 
   vulkan_buffer_load_data(context, &staging, 0, 0, width * height * 4, pixels);
   stbi_image_free(pixels);
-
-  // TODO: Wrap this into a struct
-  VkImage image;
-  VkDeviceMemory texture_image_memory;
 
   VkImageCreateInfo image_ci{};
   image_ci.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -41,12 +37,12 @@ void vulkan_image_create(backend_context* context) {
   image_ci.flags = 0;
 
   VK_CHECK(vkCreateImage(context->device.logical_device, &image_ci, nullptr,
-                         &image));
+                         &out_image->handle));
 
   // Memory now
   VkMemoryRequirements mem_reqs;
-  vkGetImageMemoryRequirements(context->device.logical_device, image,
-                               &mem_reqs);
+  vkGetImageMemoryRequirements(context->device.logical_device,
+                               out_image->handle, &mem_reqs);
 
   VkMemoryAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -55,8 +51,8 @@ void vulkan_image_create(backend_context* context) {
       context, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
   VK_CHECK(vkAllocateMemory(context->device.logical_device, &alloc_info,
-                            nullptr, &texture_image_memory));
+                            nullptr, &out_image->memory));
 
-  vkBindImageMemory(context->device.logical_device, image, texture_image_memory,
-                    0);
+  vkBindImageMemory(context->device.logical_device, out_image->handle,
+                    out_image->memory, 0);
 }
