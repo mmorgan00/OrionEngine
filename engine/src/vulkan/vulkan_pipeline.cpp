@@ -5,11 +5,34 @@
 #include "engine/logger.h"
 #include "engine/renderer_types.inl"
 
+void create_descriptor_set(backend_context* context) {
+  VkDescriptorSetLayoutBinding ubo_layout_binding{};
+  ubo_layout_binding.binding = 0;
+  ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  ubo_layout_binding.descriptorCount = 1;
+  ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  ubo_layout_binding.pImmutableSamplers = nullptr;
+
+  VkPipelineLayout pipeline_layout{};
+
+  VkDescriptorSetLayoutCreateInfo layout_info{};
+  layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  layout_info.bindingCount = 1;
+  layout_info.pBindings = &ubo_layout_binding;
+
+  VK_CHECK(vkCreateDescriptorSetLayout(
+      context->device.logical_device, &layout_info, nullptr,
+      &context->pipeline.descriptor_set_layout));
+}
+
 void vulkan_pipeline_create(backend_context* context,
                             vulkan_renderpass* renderpass,
                             VkShaderModule vert_shader,
                             VkShaderModule frag_shader,
                             vulkan_pipeline* out_pipeline) {
+  // create descriptor sets
+  create_descriptor_set(context);
+
   // Create the pipeline stages
   VkPipelineShaderStageCreateInfo
       vss_info{};  // vert shader stage(vss) create info.
@@ -87,7 +110,7 @@ void vulkan_pipeline_create(backend_context* context,
                                 // editor
   rasterizer.lineWidth = 1.0f;  // Other than this requires GPU feature
   rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-  rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+  rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterizer.depthBiasEnable = VK_FALSE;
   rasterizer.depthBiasConstantFactor = 0.0f;
   rasterizer.depthBiasClamp = 0.0f;
@@ -140,8 +163,8 @@ void vulkan_pipeline_create(backend_context* context,
 
   VkPipelineLayoutCreateInfo pipeline_layout_info{};
   pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pipeline_layout_info.setLayoutCount = 0;
-  pipeline_layout_info.pSetLayouts = nullptr;
+  pipeline_layout_info.setLayoutCount = 1;
+  pipeline_layout_info.pSetLayouts = &context->pipeline.descriptor_set_layout;
   pipeline_layout_info.pushConstantRangeCount = 0;
   pipeline_layout_info.pPushConstantRanges = nullptr;
 

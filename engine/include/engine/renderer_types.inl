@@ -13,6 +13,12 @@
 
 // Renderer 'primitives'
 
+typedef struct UniformBufferObject {
+  glm::mat4 model;
+  glm::mat4 view;
+  glm::mat4 proj;
+} ubo;
+
 // TODO: Just doing this for convenience for now. Vertex shouldn't be color data
 typedef struct Vertex {
   glm::vec2 pos;
@@ -101,6 +107,7 @@ typedef struct vulkan_swapchain {
 typedef struct vulkan_pipeline {
   VkPipeline handle;
   VkPipelineLayout layout;
+  VkDescriptorSetLayout descriptor_set_layout{};
 } vulkan_pipeline;
 
 typedef struct vulkan_shader_stage {
@@ -141,6 +148,10 @@ typedef struct backend_context {
   std::vector<VkSemaphore> render_finished_semaphore;
   std::vector<VkFence> in_flight_fence;
   uint32_t current_frame;
+  VkDescriptorPool descriptor_pool;
+  std::vector<VkDescriptorSet> descriptor_sets;
+  std::vector<vulkan_buffer> uniformBuffers;
+  std::vector<void*> uniformBuffersMapped;
 } backend_context;
 
 #define VK_CHECK(expr)               \

@@ -16,4 +16,7 @@ void vulkan_buffer_load_data(backend_context* context, vulkan_buffer* buffer,
                              long offset, uint32_t flags, long size,
                              const void* buff_data);
 
+uint32_t find_memory_type(backend_context* context, uint32_t type_filter,
+                          VkMemoryPropertyFlags properties);
+
 #endif

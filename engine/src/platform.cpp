@@ -10,7 +10,22 @@
 
 #include "engine/logger.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "engine/resources/stb_image.h"
+
 static platform_state *plat_state;
+
+void platform_open_image(const std::string &filename, int *out_image_height,
+                         int *out_image_width, int *out_channels,
+                         void *out_pixels) {
+  out_pixels = stbi_load("textures/texture.jpg", out_image_width,
+                         out_image_height, out_channels, STBI_rgb_alpha);
+
+  if (!out_pixels) {
+    throw std::runtime_error("failed to load image file!");
+  }
+  return;
+}
 
 platform_state *platform_initialize() {
   plat_state = (platform_state *)malloc(sizeof(platform_state));

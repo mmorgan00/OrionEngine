@@ -3,6 +3,7 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -16,12 +17,125 @@
 #include "engine/vulkan/vulkan_shader.h"
 #include "engine/vulkan/vulkan_swapchain.h"
 
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #define GLFW_INCLUDE_VULKAN
 #define VK_USE_PLATFORM_WAYLAND_KHR
 #include <GLFW/glfw3.h>
 
 static backend_context context;
 
+void renderer_create_texture();
+
+void create_descriptor_pool() {
+  VkDescriptorPoolSize pool_size{};
+  pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  pool_size.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+  VkDescriptorPoolCreateInfo pool_info{};
+  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  pool_info.poolSizeCount = 1;
+  pool_info.pPoolSizes = &pool_size;
+  pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+  VK_CHECK(vkCreateDescriptorPool(context.device.logical_device, &pool_info,
+                                  nullptr, &context.descriptor_pool));
+}
+
+void create_descriptor_set() {
+  std::vector<VkDescriptorSetLayout> layouts(
+      MAX_FRAMES_IN_FLIGHT, context.pipeline.descriptor_set_layout);
+  VkDescriptorSetAllocateInfo alloc_info{};
+  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  alloc_info.descriptorPool = context.descriptor_pool;
+  alloc_info.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+  alloc_info.pSetLayouts = layouts.data();
+
+  context.descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
+
+  VK_CHECK(vkAllocateDescriptorSets(context.device.logical_device, &alloc_info,
+                                    context.descriptor_sets.data()));
+
+  for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    VkDescriptorBufferInfo buffer_info{};
+    buffer_info.buffer = context.uniformBuffers[i].handle;
+    buffer_info.offset = 0;
+    buffer_info.range = sizeof(UniformBufferObject);
+
+    VkWriteDescriptorSet descriptor_write{};
+    descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptor_write.dstSet = context.descriptor_sets[i];
+    descriptor_write.dstBinding = 0;
+    descriptor_write.dstArrayElement = 0;
+    descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptor_write.descriptorCount = 1;
+    descriptor_write.pBufferInfo = &buffer_info;
+    descriptor_write.pImageInfo = nullptr;
+    descriptor_write.pTexelBufferView = nullptr;
+
+    vkUpdateDescriptorSets(context.device.logical_device, 1, &descriptor_write,
+                           0, nullptr);
+  }
+}
+
+void create_buffers() {
+  // TODO: Buffers shouldn't be hardcoded like this. Revist after geometry
+  // system
+  // Vertices
+  vulkan_buffer staging;
+  vulkan_buffer_create(&context, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                       sizeof(vertices[0]) * vertices.size(), &staging);
+
+  vulkan_buffer_load_data(&context, &staging, 0, 0,
+                          sizeof(vertices[0]) * vertices.size(),
+                          vertices.data());
+  vulkan_buffer_create(
+      &context,
+      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+      sizeof(vertices[0]) * vertices.size(), &context.vert_buff);
+
+  vulkan_buffer_copy(&context, &staging, &context.vert_buff,
+                     sizeof(vertices[0]) * vertices.size());
+
+  // Indices
+  vulkan_buffer index_staging;
+  vulkan_buffer_create(&context, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                       sizeof(indices[0]) * indices.size(), &index_staging);
+  vulkan_buffer_create(
+      &context,
+      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, sizeof(indices[0]) * indices.size(),
+      &context.index_buff);
+
+  vulkan_buffer_load_data(&context, &index_staging, 0, 0,
+                          sizeof(indices[0]) * indices.size(), indices.data());
+
+  vulkan_buffer_copy(&context, &index_staging, &context.index_buff,
+                     sizeof(indices[0]) * indices.size());
+
+  // Uniforms
+  context.uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+  context.uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+  for (size_t i = 0; i <= MAX_FRAMES_IN_FLIGHT; i++) {
+    vulkan_buffer_create(&context, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                         sizeof(UniformBufferObject),
+                         &context.uniformBuffers[i]);
+    // Map the memory here since we will be updating this *constantly*
+    vkMapMemory(context.device.logical_device, context.uniformBuffers[i].memory,
+                0, sizeof(UniformBufferObject), 0,
+                &context.uniformBuffersMapped[i]);
+  }
+}
 void create_sync_objects() {
   context.image_available_semaphore.resize(MAX_FRAMES_IN_FLIGHT);
   context.render_finished_semaphore.resize(MAX_FRAMES_IN_FLIGHT);
@@ -45,6 +159,30 @@ void create_sync_objects() {
   return;
 }
 
+void update_ubo(uint32_t frame_index) {
+  static auto start_time = std::chrono::high_resolution_clock::now();
+
+  auto current_time = std::chrono::high_resolution_clock::now();
+
+  float time = std::chrono::duration<float, std::chrono::seconds::period>(
+                   current_time - start_time)
+                   .count();
+
+  UniformBufferObject ubo{};
+  ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
+                          glm::vec3(0.0f, 0.0f, 1.0f));
+  ubo.view =
+      glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+                  glm::vec3(0.0f, 0.0f, 1.0f));
+  ubo.proj = glm::perspective(
+      glm::radians(45.0f),
+      context.swapchain.extent.width / (float)context.swapchain.extent.height,
+      0.1f, 10.0f);
+  ubo.proj[1][1] *= -1;  // we're not in openGL
+
+  memcpy(context.uniformBuffersMapped[frame_index], &ubo, sizeof(ubo));
+}
+
 void renderer_backend_draw_frame() {
   vkWaitForFences(context.device.logical_device, 1,
                   &context.in_flight_fence[context.current_frame], VK_TRUE,
@@ -58,6 +196,9 @@ void renderer_backend_draw_frame() {
       &image_index);
   vkResetCommandBuffer(context.command_buffer[context.current_frame],
                        0);  // nothing special with command buffer for now;
+  //
+  update_ubo(context.current_frame);
+
   renderer_backend_draw_image(image_index);
   // time to submit commands now
   VkSubmitInfo submit_info{};
@@ -156,6 +297,11 @@ void renderer_backend_draw_image(uint32_t image_index) {
   scissor.extent = context.swapchain.extent;
   vkCmdSetScissor(context.command_buffer[context.current_frame], 0, 1,
                   &scissor);
+
+  vkCmdBindDescriptorSets(
+      context.command_buffer[context.current_frame],
+      VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline.layout, 0, 1,
+      &context.descriptor_sets[context.current_frame], 0, nullptr);
 
   // WOOOOOOO
   // TODO: make this like, way more configurable
@@ -345,45 +491,10 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 
   create_sync_objects();
 
-  // TODO: Buffers shouldn't be hardcoded like this. Revist after geometry
-  // system
-  // Vertices
-  vulkan_buffer staging;
-  vulkan_buffer_create(&context, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                       sizeof(vertices[0]) * vertices.size(), &staging);
+  create_buffers();
 
-  vulkan_buffer_load_data(&context, &staging, 0, 0,
-                          sizeof(vertices[0]) * vertices.size(),
-                          vertices.data());
-  vulkan_buffer_create(
-      &context,
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-      sizeof(vertices[0]) * vertices.size(), &context.vert_buff);
-
-  vulkan_buffer_copy(&context, &staging, &context.vert_buff,
-                     sizeof(vertices[0]) * vertices.size());
-
-  // Indices
-  vulkan_buffer index_staging;
-  vulkan_buffer_create(&context, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                       sizeof(indices[0]) * indices.size(), &index_staging);
-  vulkan_buffer_create(
-      &context,
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, sizeof(indices[0]) * indices.size(),
-      &context.index_buff);
-
-  vulkan_buffer_load_data(&context, &index_staging, 0, 0,
-                          sizeof(indices[0]) * indices.size(), indices.data());
-
-  vulkan_buffer_copy(&context, &index_staging, &context.index_buff,
-                     sizeof(indices[0]) * indices.size());
-
+  create_descriptor_pool();
+  create_descriptor_set();
   // TODO : vulkan_buffer_destroy staging
 
   return true;
@@ -392,6 +503,18 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 void renderer_backend_shutdown() {
   // Opposite order of creation
 
+  vkDestroyDescriptorPool(context.device.logical_device,
+                          context.descriptor_pool, nullptr);
+
+  vkDestroyDescriptorSetLayout(context.device.logical_device,
+                               context.pipeline.descriptor_set_layout, nullptr);
+
+  for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    vkDestroyBuffer(context.device.logical_device,
+                    context.uniformBuffers[i].handle, nullptr);
+  }
+  vkDestroyDescriptorSetLayout(context.device.logical_device,
+                               context.pipeline.descriptor_set_layout, nullptr);
   // cleanup any buffers
   vkDestroyBuffer(context.device.logical_device, context.vert_buff.handle,
                   nullptr);
