@@ -5,6 +5,8 @@
 #include <cstring>
 #include <stdexcept>
 
+#include "engine/vulkan/vulkan_command_buffer.h"
+
 uint32_t find_memory_type(backend_context* context, uint32_t type_filter,
                           VkMemoryPropertyFlags properties) {
   VkPhysicalDeviceMemoryProperties mem_properties;
@@ -21,6 +23,12 @@ uint32_t find_memory_type(backend_context* context, uint32_t type_filter,
   throw std::runtime_error("Failed to find suitable memory for buffer");
 }
 
+void vulkan_buffer_destroy(backend_context* context, vulkan_buffer* buffer) {
+  vkDestroyBuffer(context->device.logical_device, buffer->handle, nullptr);
+
+  vkFreeMemory(context->device.logical_device, buffer->memory, nullptr);
+}
+
 void vulkan_buffer_load_data(backend_context* context, vulkan_buffer* buffer,
                              long offset, uint32_t flags, long size,
                              const void* buff_data) {
@@ -32,25 +40,9 @@ void vulkan_buffer_load_data(backend_context* context, vulkan_buffer* buffer,
 }
 void vulkan_buffer_copy(backend_context* context, vulkan_buffer* source,
                         vulkan_buffer* target, VkDeviceSize size) {
-  // Going to use a one time command buffer to copy and immediately start
-  // recording
-  VkCommandBufferAllocateInfo alloc_info{};
-  alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  alloc_info.commandPool = context->command_pool;
-  alloc_info.commandBufferCount = 1;
-
-  VkCommandBuffer command_buffer;
-  vkAllocateCommandBuffers(context->device.logical_device, &alloc_info,
-                           &command_buffer);
-
-  VkCommandBufferBeginInfo beginInfo{};
-  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-  vkBeginCommandBuffer(command_buffer, &beginInfo);
-
-  // Perform the copy
+  VkCommandBuffer command_buffer =
+      vulkan_command_buffer_begin_single_time_commands(context);
+  // // Perform the copy
   VkBufferCopy copy_info{};
   copy_info.srcOffset = 0;
   copy_info.dstOffset = 0;
@@ -58,19 +50,9 @@ void vulkan_buffer_copy(backend_context* context, vulkan_buffer* source,
 
   vkCmdCopyBuffer(command_buffer, source->handle, target->handle, 1,
                   &copy_info);
-  vkEndCommandBuffer(command_buffer);
 
-  VkSubmitInfo submit_info{};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &command_buffer;
+  vulkan_command_buffer_end_single_time_commands(context, command_buffer);
 
-  vkQueueSubmit(context->device.graphics_queue, 1, &submit_info,
-                VK_NULL_HANDLE);
-  vkQueueWaitIdle(context->device.graphics_queue);
-
-  vkFreeCommandBuffers(context->device.logical_device, context->command_pool, 1,
-                       &command_buffer);
   return;
 }
 void vulkan_buffer_create(backend_context* context, VkBufferUsageFlags usage,

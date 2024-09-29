@@ -18,7 +18,7 @@ static platform_state *plat_state;
 void platform_open_image(const std::string &filename, int *out_image_height,
                          int *out_image_width, int *out_channels,
                          void *out_pixels) {
-  out_pixels = stbi_load("textures/texture.jpg", out_image_width,
+  out_pixels = stbi_load("../bin/assets/textures/texture.jpg", out_image_width,
                          out_image_height, out_channels, STBI_rgb_alpha);
 
   if (!out_pixels) {

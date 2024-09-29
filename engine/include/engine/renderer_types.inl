@@ -63,6 +63,7 @@ const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 typedef struct vulkan_image {
   VkImage handle;
   VkDeviceMemory memory;
+  VkImageView view;
 } vulkan_image;
 
 typedef struct vulkan_swapchain_support_info {
@@ -156,6 +157,7 @@ typedef struct backend_context {
   std::vector<VkDescriptorSet> descriptor_sets;
   std::vector<vulkan_buffer> uniformBuffers;
   std::vector<void*> uniformBuffersMapped;
+
 } backend_context;
 
 #define VK_CHECK(expr)               \

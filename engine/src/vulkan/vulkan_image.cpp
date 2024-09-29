@@ -3,23 +3,106 @@
 
 #include <vulkan/vulkan_core.h>
 
-#include "engine/platform.h"
+#include <stdexcept>
+
 #include "engine/vulkan/vulkan_buffer.h"
+#include "engine/vulkan/vulkan_command_buffer.h"
 
-void vulkan_image_create(backend_context* context, vulkan_image* out_image) {
-  int width, height, channels;
-  void* pixels;
-  platform_open_image("resources/default", &width, &height, &channels, &pixels);
+void vulkan_image_view(backend_context* context, vulkan_image* image) {
+  VkImageViewCreateInfo view_ci{};
+  view_ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  view_ci.image = image->handle;
+  view_ci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  view_ci.format = VK_FORMAT_R8G8B8A8_SRGB;
+  view_ci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  view_ci.subresourceRange.baseMipLevel = 0;
+  view_ci.subresourceRange.levelCount = 1;
+  view_ci.subresourceRange.baseArrayLayer = 0;
+  view_ci.subresourceRange.layerCount = 1;
+  VK_CHECK(vkCreateImageView(context->device.logical_device, &view_ci, nullptr,
+                             &image->view));
+  return;
+}
+void vulkan_image_copy_from_buffer(backend_context* context,
+                                   vulkan_buffer buffer, vulkan_image image,
+                                   uint32_t height, uint32_t width) {
+  VkCommandBuffer cmd_buf =
+      vulkan_command_buffer_begin_single_time_commands(context);
 
-  vulkan_buffer staging;
-  vulkan_buffer_create(context, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                       width * height * 4, &staging);
+  VkBufferImageCopy region{};
+  region.bufferOffset = 0;
+  region.bufferRowLength = 0;
+  region.bufferImageHeight = 0;
 
-  vulkan_buffer_load_data(context, &staging, 0, 0, width * height * 4, pixels);
-  stbi_image_free(pixels);
+  region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  region.imageSubresource.mipLevel = 0;
+  region.imageSubresource.baseArrayLayer = 0;
+  region.imageSubresource.layerCount = 1;
 
+  region.imageOffset = {0, 0, 0};
+  region.imageExtent = {width, height, 1};
+
+  vkCmdCopyBufferToImage(cmd_buf, buffer.handle, image.handle,
+                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+  vulkan_command_buffer_end_single_time_commands(context, cmd_buf);
+}
+
+void vulkan_image_transition_layout(backend_context* context,
+                                    vulkan_image* image, VkFormat format,
+                                    VkImageLayout old_layout,
+                                    VkImageLayout new_layout) {
+  VkCommandBuffer cmd_buf =
+      vulkan_command_buffer_begin_single_time_commands(context);
+
+  VkImageMemoryBarrier barrier{};
+  barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  barrier.oldLayout = old_layout;
+  barrier.newLayout = new_layout;
+  barrier.srcQueueFamilyIndex =
+      context->device.transfer_queue_index | VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex =
+      context->device.transfer_queue_index | VK_QUEUE_FAMILY_IGNORED;
+
+  barrier.image = image->handle;
+  barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 1;
+
+  barrier.srcAccessMask = 0;
+  barrier.dstAccessMask = 0;
+
+  VkPipelineStageFlags src_stage;
+  VkPipelineStageFlags dst_stage;
+  // Set access masks
+  if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED &&
+      new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+  } else if (old_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+             new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+  } else {
+    throw std::invalid_argument("unsupported layout transition!");
+  }
+  vkCmdPipelineBarrier(cmd_buf, src_stage, dst_stage, 0, 0, nullptr, 0, nullptr,
+                       1, &barrier);
+
+  vulkan_command_buffer_end_single_time_commands(context, cmd_buf);
+}
+
+void vulkan_image_create(backend_context* context, uint32_t height,
+                         uint32_t width, vulkan_image* out_image) {
   VkImageCreateInfo image_ci{};
   image_ci.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   image_ci.imageType = VK_IMAGE_TYPE_2D;

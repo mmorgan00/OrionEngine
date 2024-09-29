@@ -9,6 +9,8 @@ void vulkan_buffer_create(backend_context* context, VkBufferUsageFlags usage,
                           VkMemoryPropertyFlags properties, VkDeviceSize size,
                           vulkan_buffer* out_buffer);
 
+void vulkan_buffer_destroy(backend_context* context, vulkan_buffer* buffer);
+
 void vulkan_buffer_copy(backend_context* context, vulkan_buffer* source,
                         vulkan_buffer* target, VkDeviceSize size);
 

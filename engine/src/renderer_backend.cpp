@@ -13,6 +13,7 @@
 #include "engine/renderer_types.inl"
 #include "engine/vulkan/vulkan_buffer.h"
 #include "engine/vulkan/vulkan_device.h"
+#include "engine/vulkan/vulkan_image.h"
 #include "engine/vulkan/vulkan_renderpass.h"
 #include "engine/vulkan/vulkan_shader.h"
 #include "engine/vulkan/vulkan_swapchain.h"
@@ -27,7 +28,37 @@
 
 static backend_context context;
 
-void renderer_create_texture();
+void renderer_create_texture() {
+  // TODO: Temp code
+  int width, height, channels;
+  void *pixels;
+  platform_open_image("textures/statue.jpg", &width, &height, &channels,
+                      &pixels);
+
+  vulkan_buffer staging;
+  vulkan_buffer_create(&context, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                       width * height * 4, &staging);
+
+  vulkan_buffer_load_data(&context, &staging, 0, 0, width * height * 4, pixels);
+
+  vulkan_image default_tex_image;
+  vulkan_image_create(&context, width, height, &default_tex_image);
+  vulkan_image_transition_layout(
+      &context, &default_tex_image, VK_FORMAT_R8G8B8A8_SRGB,
+      VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  vulkan_image_copy_from_buffer(&context, staging, default_tex_image, height,
+                                width);
+  vulkan_image_transition_layout(&context, &default_tex_image,
+                                 VK_FORMAT_R8G8B8A8_SRGB,
+                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+  vulkan_buffer_destroy(&context, &staging);
+
+  vulkan_image_create_view(&context, &default_tex_image);
+}
 
 void create_descriptor_pool() {
   VkDescriptorPoolSize pool_size{};
@@ -432,8 +463,8 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 
   uint32_t log_severity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                          VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;  //|
-  // VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
+                          VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+                          VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
 
   VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
       VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
@@ -495,32 +526,50 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 
   create_descriptor_pool();
   create_descriptor_set();
-  // TODO : vulkan_buffer_destroy staging
+
+  renderer_create_texture();
 
   return true;
 }
 
 void renderer_backend_shutdown() {
-  // Opposite order of creation
+  vkDeviceWaitIdle(context.device.logical_device);
 
-  vkDestroyDescriptorPool(context.device.logical_device,
-                          context.descriptor_pool, nullptr);
+  vulkan_swapchain_destroy(&context);
+  // TODO: Fix this
+  // vkDestroyImageView(context.device.logical_device, default_tex_image,
+  // nullptr);
 
-  vkDestroyDescriptorSetLayout(context.device.logical_device,
-                               context.pipeline.descriptor_set_layout, nullptr);
+  // vkDestroyImage(context.device.logical_device, textureImage, nullptr);
+  // vkFreeMemory(device, textureImageMemory, nullptr);
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     vkDestroyBuffer(context.device.logical_device,
                     context.uniformBuffers[i].handle, nullptr);
+    vkFreeMemory(context.device.logical_device,
+                 context.uniformBuffers[i].memory, nullptr);
   }
+
+  // Opposite order of creation
+
+  vkDestroyDescriptorPool(context.device.logical_device,
+                          context.descriptor_pool, nullptr);
+  // TODO: Destroy texture
+
   vkDestroyDescriptorSetLayout(context.device.logical_device,
                                context.pipeline.descriptor_set_layout, nullptr);
+
   // cleanup any buffers
   vkDestroyBuffer(context.device.logical_device, context.vert_buff.handle,
                   nullptr);
   vkFreeMemory(context.device.logical_device, context.vert_buff.memory,
                nullptr);
-  vulkan_swapchain_destroy(&context);
+  vkDestroyBuffer(context.device.logical_device, context.index_buff.handle,
+                  nullptr);
+  vkFreeMemory(context.device.logical_device, context.index_buff.memory,
+               nullptr);
+  //
+
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     vkDestroyFence(context.device.logical_device, context.in_flight_fence[i],
                    nullptr);
@@ -530,15 +579,15 @@ void renderer_backend_shutdown() {
     vkDestroySemaphore(context.device.logical_device,
                        context.render_finished_semaphore[i], nullptr);
   }
+
+  vkFreeCommandBuffers(context.device.logical_device, context.command_pool,
+                       context.command_buffer.size(),
+                       context.command_buffer.data());
+
   vkDestroyCommandPool(context.device.logical_device, context.command_pool,
                        nullptr);
 
-  vkDestroyPipeline(context.device.logical_device, context.pipeline.handle,
-                    nullptr);
-  vkDestroyPipelineLayout(context.device.logical_device,
-                          context.pipeline.layout, nullptr);
   vkDestroyDevice(context.device.logical_device, nullptr);
-  vkDestroySurfaceKHR(context.instance, context.surface, nullptr);
 
 #ifndef NDEBUG
 
@@ -548,6 +597,8 @@ void renderer_backend_shutdown() {
   func(context.instance, context.debug_messenger, nullptr);
 
 #endif
+
+  vkDestroySurfaceKHR(context.instance, context.surface, nullptr);
   vkDestroyInstance(context.instance, nullptr);
 }
 
