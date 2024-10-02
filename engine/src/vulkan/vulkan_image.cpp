@@ -8,7 +8,7 @@
 #include "engine/vulkan/vulkan_buffer.h"
 #include "engine/vulkan/vulkan_command_buffer.h"
 
-void vulkan_image_view(backend_context* context, vulkan_image* image) {
+void vulkan_image_create_view(backend_context* context, vulkan_image* image) {
   VkImageViewCreateInfo view_ci{};
   view_ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   view_ci.image = image->handle;

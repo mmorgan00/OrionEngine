@@ -61,7 +61,7 @@ void vulkan_buffer_create(backend_context* context, VkBufferUsageFlags usage,
   VkBufferCreateInfo buffer_info{};
   buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   buffer_info.size = size;
-  buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+  buffer_info.usage = usage;
   buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   VK_CHECK(vkCreateBuffer(context->device.logical_device, &buffer_info, nullptr,
@@ -75,21 +75,11 @@ void vulkan_buffer_create(backend_context* context, VkBufferUsageFlags usage,
   alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   alloc_info.allocationSize = mem_reqs.size;
   alloc_info.memoryTypeIndex =
-      find_memory_type(context, mem_reqs.memoryTypeBits,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+      find_memory_type(context, mem_reqs.memoryTypeBits, properties);
 
   VK_CHECK(vkAllocateMemory(context->device.logical_device, &alloc_info,
                             nullptr, &out_buffer->memory));
 
   vkBindBufferMemory(context->device.logical_device, out_buffer->handle,
                      out_buffer->memory, 0);
-
-  // TODO: From here down should be a separate function call
-  // map memory
-  // void* data;
-  // vkMapMemory(context->device.logical_device, out_buffer->memory, 0,
-  //             buffer_info.size, 0, &data);
-  // memcpy(data, vertices.data(), (size_t)buffer_info.size);
-  // vkUnmapMemory(context->device.logical_device, out_buffer->memory);
 }

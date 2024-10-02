@@ -26,6 +26,10 @@
 #define VK_USE_PLATFORM_WAYLAND_KHR
 #include <GLFW/glfw3.h>
 
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 static backend_context context;
 
 void renderer_create_texture() {
@@ -91,7 +95,7 @@ void create_descriptor_set() {
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     VkDescriptorBufferInfo buffer_info{};
-    buffer_info.buffer = context.uniformBuffers[i].handle;
+    buffer_info.buffer = context.uniform_buffers[i].handle;
     buffer_info.offset = 0;
     buffer_info.range = sizeof(UniformBufferObject);
 
@@ -152,19 +156,19 @@ void create_buffers() {
                      sizeof(indices[0]) * indices.size());
 
   // Uniforms
-  context.uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-  context.uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+  context.uniform_buffers.resize(MAX_FRAMES_IN_FLIGHT);
+  context.uniform_buffer_memory.resize(MAX_FRAMES_IN_FLIGHT);
 
   for (size_t i = 0; i <= MAX_FRAMES_IN_FLIGHT; i++) {
     vulkan_buffer_create(&context, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                          sizeof(UniformBufferObject),
-                         &context.uniformBuffers[i]);
+                         &context.uniform_buffers[i]);
     // Map the memory here since we will be updating this *constantly*
-    vkMapMemory(context.device.logical_device, context.uniformBuffers[i].memory,
-                0, sizeof(UniformBufferObject), 0,
-                &context.uniformBuffersMapped[i]);
+    vkMapMemory(
+        context.device.logical_device, context.uniform_buffers[i].memory, 0,
+        sizeof(UniformBufferObject), 0, &context.uniform_buffer_memory[i]);
   }
 }
 void create_sync_objects() {
@@ -210,10 +214,8 @@ void update_ubo(uint32_t frame_index) {
       context.swapchain.extent.width / (float)context.swapchain.extent.height,
       0.1f, 10.0f);
   ubo.proj[1][1] *= -1;  // we're not in openGL
-
-  memcpy(context.uniformBuffersMapped[frame_index], &ubo, sizeof(ubo));
+  memcpy(context.uniform_buffer_memory[frame_index], &ubo, sizeof(ubo));
 }
-
 void renderer_backend_draw_frame() {
   vkWaitForFences(context.device.logical_device, 1,
                   &context.in_flight_fence[context.current_frame], VK_TRUE,
@@ -227,9 +229,8 @@ void renderer_backend_draw_frame() {
       &image_index);
   vkResetCommandBuffer(context.command_buffer[context.current_frame],
                        0);  // nothing special with command buffer for now;
-  //
-  update_ubo(context.current_frame);
 
+  update_ubo(context.current_frame);
   renderer_backend_draw_image(image_index);
   // time to submit commands now
   VkSubmitInfo submit_info{};
@@ -432,7 +433,7 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 
   createInfo.pNext = nullptr;
 
-#ifdef NDEBUG
+#ifndef NDEBUG
 
   extensionNames.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif
@@ -453,6 +454,10 @@ bool renderer_backend_initialize(platform_state *plat_state) {
     OE_LOG(LOG_LEVEL_FATAL, "Failed to get validation layers!");
     return false;
   }
+  std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
+  createInfo.enabledLayerCount = validationLayers.size();
+
+  createInfo.ppEnabledLayerNames = validationLayers.data();
 
   if (vkCreateInstance(&createInfo, nullptr, &context.instance) != VK_SUCCESS) {
     OE_LOG(LOG_LEVEL_FATAL, "Failed to create vulkan instance!");
@@ -511,8 +516,8 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 
   // Creates the pipeline as well.
   // TODO: support multiple...shaders/pipelines?
-  vulkan_shader_create(&context, &context.main_renderpass, "default.vert.glsl",
-                       "default.frag.glsl");
+  vulkan_shader_create(&context, &context.main_renderpass, "default.vert.spv",
+                       "default.frag.spv");
 
   generate_framebuffers(&context);
 
@@ -527,8 +532,10 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   create_descriptor_pool();
   create_descriptor_set();
 
-  renderer_create_texture();
+  // renderer_create_texture();
 
+  create_descriptor_pool();
+  create_descriptor_set();
   return true;
 }
 
@@ -543,32 +550,30 @@ void renderer_backend_shutdown() {
   // vkDestroyImage(context.device.logical_device, textureImage, nullptr);
   // vkFreeMemory(device, textureImageMemory, nullptr);
 
-  for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-    vkDestroyBuffer(context.device.logical_device,
-                    context.uniformBuffers[i].handle, nullptr);
-    vkFreeMemory(context.device.logical_device,
-                 context.uniformBuffers[i].memory, nullptr);
-  }
-
   // Opposite order of creation
+  vkDeviceWaitIdle(context.device.logical_device);
+
+  for (size_t i = 0; i < context.uniform_buffers.size(); i++) {
+    vulkan_buffer_destroy(&context, &context.uniform_buffers[i]);
+  }
+  vulkan_buffer_destroy(&context, &context.vert_buff);
+  vulkan_buffer_destroy(&context, &context.index_buff);
+
+  vulkan_swapchain_destroy(&context);
 
   vkDestroyDescriptorPool(context.device.logical_device,
                           context.descriptor_pool, nullptr);
-  // TODO: Destroy texture
 
   vkDestroyDescriptorSetLayout(context.device.logical_device,
                                context.pipeline.descriptor_set_layout, nullptr);
 
+  vkDestroyPipeline(context.device.logical_device, context.pipeline.handle,
+                    nullptr);
+  vkDestroyPipelineLayout(context.device.logical_device,
+                          context.pipeline.layout, nullptr);
+  vkDestroyRenderPass(context.device.logical_device,
+                      context.main_renderpass.handle, nullptr);
   // cleanup any buffers
-  vkDestroyBuffer(context.device.logical_device, context.vert_buff.handle,
-                  nullptr);
-  vkFreeMemory(context.device.logical_device, context.vert_buff.memory,
-               nullptr);
-  vkDestroyBuffer(context.device.logical_device, context.index_buff.handle,
-                  nullptr);
-  vkFreeMemory(context.device.logical_device, context.index_buff.memory,
-               nullptr);
-  //
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     vkDestroyFence(context.device.logical_device, context.in_flight_fence[i],

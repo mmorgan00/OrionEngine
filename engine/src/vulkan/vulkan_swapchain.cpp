@@ -130,8 +130,10 @@ void create(backend_context *context) {
 
 void vulkan_swapchain_destroy(backend_context *context) {
   for (size_t i = 0; i < context->swapchain.framebuffers.size(); i++) {
-    vkDestroyFramebuffer(context->device.logical_device,
-                         context->swapchain.framebuffers[i], nullptr);
+    if (context->swapchain.framebuffers[i]) {
+      vkDestroyFramebuffer(context->device.logical_device,
+                           context->swapchain.framebuffers[i], nullptr);
+    }
   }
 
   for (size_t i = 0; i < context->swapchain.views.size(); i++) {
@@ -174,7 +176,7 @@ void vulkan_swapchain_create_image_views(backend_context *context) {
     create_info.subresourceRange.baseMipLevel = 0;
     create_info.subresourceRange.levelCount = 1;
     create_info.subresourceRange.baseArrayLayer = 0;
-    create_info.subresourceRange.layerCount;
+    create_info.subresourceRange.layerCount = 1;
     VK_CHECK(vkCreateImageView(context->device.logical_device, &create_info,
                                nullptr, &context->swapchain.views[i]));
   }

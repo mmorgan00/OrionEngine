@@ -155,9 +155,8 @@ typedef struct backend_context {
   uint32_t current_frame;
   VkDescriptorPool descriptor_pool;
   std::vector<VkDescriptorSet> descriptor_sets;
-  std::vector<vulkan_buffer> uniformBuffers;
-  std::vector<void*> uniformBuffersMapped;
-
+  std::vector<vulkan_buffer> uniform_buffers;
+  std::vector<void*> uniform_buffer_memory;
 } backend_context;
 
 #define VK_CHECK(expr)               \

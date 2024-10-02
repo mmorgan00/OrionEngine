@@ -13,4 +13,5 @@ int main() {
   }
   renderer_shutdown();
   platform_shutdown();
+  plat_state = 0;
 }
