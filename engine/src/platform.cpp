@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 
+#include <fstream>
 #include <vector>
 
 #include "engine/logger.h"
@@ -15,16 +16,17 @@
 
 static platform_state *plat_state;
 
-void platform_open_image(const std::string &filename, int *out_image_height,
-                         int *out_image_width, int *out_channels,
-                         void *out_pixels) {
-  out_pixels = stbi_load("../bin/assets/textures/texture.jpg", out_image_width,
-                         out_image_height, out_channels, STBI_rgb_alpha);
+stbi_uc *platform_open_image(const std::string filename, int *out_image_height,
+                             int *out_image_width, int *out_channels) {
+  const std::string image_dir = "../bin/assets/";
+  std::string full_path = image_dir + filename;
+  stbi_uc *pixels = stbi_load(full_path.c_str(), out_image_width,
+                              out_image_height, out_channels, STBI_rgb_alpha);
 
-  if (!out_pixels) {
+  if (!pixels) {
     throw std::runtime_error("failed to load image file!");
   }
-  return;
+  return pixels;
 }
 
 platform_state *platform_initialize() {

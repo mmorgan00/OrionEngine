@@ -8,19 +8,56 @@
 #include "engine/vulkan/vulkan_buffer.h"
 #include "engine/vulkan/vulkan_command_buffer.h"
 
-void vulkan_image_create_view(backend_context* context, vulkan_image* image) {
+void vulkan_image_create_sampler(backend_context* context, vulkan_image* image,
+                                 VkSampler* out_sampler) {
+  VkSamplerCreateInfo sampler_info{};
+  sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  sampler_info.magFilter = VK_FILTER_LINEAR;
+  sampler_info.minFilter = VK_FILTER_LINEAR;
+  sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  sampler_info.anisotropyEnable = VK_TRUE;
+  sampler_info.maxAnisotropy =
+      context->device.properties.limits.maxSamplerAnisotropy;
+  sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+  sampler_info.unnormalizedCoordinates = VK_FALSE;
+  sampler_info.compareEnable = VK_FALSE;
+  sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
+  sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+  sampler_info.mipLodBias = 0.0f;
+  sampler_info.minLod = 0.0f;
+  sampler_info.maxLod = 0.0f;
+
+  VK_CHECK(vkCreateSampler(context->device.logical_device, &sampler_info,
+                           nullptr, out_sampler));
+}
+
+/**
+ * @brief Creates a new vulkan image view and saves it into the provided
+ * vulkan_image pointer
+ * @param context - The vulkan context needed to issue vulkan commands
+ * @param image - The vulkan_image to save the image view into
+ */
+void vulkan_image_create_view(backend_context* context, VkFormat format,
+                              VkImage* image, VkImageView* out_image_view) {
   VkImageViewCreateInfo view_ci{};
   view_ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-  view_ci.image = image->handle;
+  view_ci.image = *image;
   view_ci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  view_ci.format = VK_FORMAT_R8G8B8A8_SRGB;
+  view_ci.format = format;  // VK_FORMAT_R8G8B8A8_SRGB;
+  view_ci.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+  view_ci.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+  view_ci.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+  view_ci.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
   view_ci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
   view_ci.subresourceRange.baseMipLevel = 0;
   view_ci.subresourceRange.levelCount = 1;
   view_ci.subresourceRange.baseArrayLayer = 0;
   view_ci.subresourceRange.layerCount = 1;
   VK_CHECK(vkCreateImageView(context->device.logical_device, &view_ci, nullptr,
-                             &image->view));
+                             out_image_view));
   return;
 }
 void vulkan_image_copy_from_buffer(backend_context* context,

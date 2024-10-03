@@ -6,6 +6,7 @@
 
 #include "engine/logger.h"
 #include "engine/renderer_types.inl"
+#include "engine/vulkan/vulkan_image.h"
 
 VkSurfaceFormatKHR swapchain_select_surface_format(
     const std::vector<VkSurfaceFormatKHR> available_formats) {
@@ -161,24 +162,9 @@ void vulkan_swapchain_create_image_views(backend_context *context) {
   context->swapchain.views.resize(context->swapchain.image_count);
 
   for (size_t i = 0; i < context->swapchain.image_count; i++) {
-    VkImageViewCreateInfo create_info{};
-    create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    create_info.image = context->swapchain.images[i];
-    create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    create_info.format = context->swapchain.image_format;
-
-    create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-    create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-    create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-    create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-
-    create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    create_info.subresourceRange.baseMipLevel = 0;
-    create_info.subresourceRange.levelCount = 1;
-    create_info.subresourceRange.baseArrayLayer = 0;
-    create_info.subresourceRange.layerCount = 1;
-    VK_CHECK(vkCreateImageView(context->device.logical_device, &create_info,
-                               nullptr, &context->swapchain.views[i]));
+    vulkan_image_create_view(context, context->swapchain.image_format,
+                             &context->swapchain.images[i],
+                             &context->swapchain.views[i]);
   }
   OE_LOG(LOG_LEVEL_DEBUG, "Swapchain image views created");
 }

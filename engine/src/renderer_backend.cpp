@@ -35,9 +35,8 @@ static backend_context context;
 void renderer_create_texture() {
   // TODO: Temp code
   int width, height, channels;
-  void *pixels;
-  platform_open_image("textures/statue.jpg", &width, &height, &channels,
-                      &pixels);
+  void *pixels =
+      platform_open_image("textures/texture.jpg", &height, &width, &channels);
 
   vulkan_buffer staging;
   vulkan_buffer_create(&context, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -48,7 +47,7 @@ void renderer_create_texture() {
   vulkan_buffer_load_data(&context, &staging, 0, 0, width * height * 4, pixels);
 
   vulkan_image default_tex_image;
-  vulkan_image_create(&context, width, height, &default_tex_image);
+  vulkan_image_create(&context, height, width, &default_tex_image);
   vulkan_image_transition_layout(
       &context, &default_tex_image, VK_FORMAT_R8G8B8A8_SRGB,
       VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -61,7 +60,11 @@ void renderer_create_texture() {
 
   vulkan_buffer_destroy(&context, &staging);
 
-  vulkan_image_create_view(&context, &default_tex_image);
+  vulkan_image_create_view(&context, VK_FORMAT_R8G8B8A8_SRGB,
+                           &default_tex_image.handle, &default_tex_image.view);
+  VkSampler default_tex_sampler;
+  vulkan_image_create_sampler(&context, &default_tex_image,
+                              &default_tex_sampler);
 }
 
 void create_descriptor_pool() {
@@ -375,8 +378,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 bool check_validation_layer_support();
 
 void generate_framebuffers(backend_context *context) {
-  context->swapchain.framebuffers.resize(context->swapchain.views.size());
-  for (size_t i = 0; i < context->swapchain.views.size(); i++) {
+  context->swapchain.framebuffers.resize(context->swapchain.images.size());
+  for (size_t i = 0; i < context->swapchain.images.size(); i++) {
     VkImageView attachments[] = {context->swapchain.views[i]};
 
     VkFramebufferCreateInfo framebuffer_create_info{};
@@ -532,7 +535,7 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   create_descriptor_pool();
   create_descriptor_set();
 
-  // renderer_create_texture();
+  renderer_create_texture();
 
   create_descriptor_pool();
   create_descriptor_set();

@@ -3,7 +3,7 @@
 
 #include <GLFW/glfw3.h>
 
-#include <fstream>
+#include <string>
 #include <vector>
 
 #include "resources/stb_image.h"
@@ -16,9 +16,8 @@ platform_state* platform_initialize();
 
 GLFWwindow* platform_create_window();
 
-void platform_open_image(const std::string& filename, int* out_image_height,
-                         int* out_image_width, int* out_channels,
-                         void* out_pixels);
+stbi_uc* platform_open_image(const std::string filename, int* out_image_height,
+                             int* out_image_width, int* out_channels);
 void platform_shutdown();
 
 std::vector<char> platform_read_file(const std::string& filename);
