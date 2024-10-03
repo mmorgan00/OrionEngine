@@ -23,6 +23,7 @@ typedef struct UniformBufferObject {
 typedef struct Vertex {
   glm::vec2 pos;
   glm::vec3 color;
+  glm::vec2 tex_coord;
 
   static VkVertexInputBindingDescription get_binding_description() {
     VkVertexInputBindingDescription binding_description{};
@@ -31,9 +32,9 @@ typedef struct Vertex {
     binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
     return binding_description;
   }
-  static std::array<VkVertexInputAttributeDescription, 2>
+  static std::array<VkVertexInputAttributeDescription, 3>
   get_attribute_descriptions() {
-    std::array<VkVertexInputAttributeDescription, 2> attribute_descriptions{};
+    std::array<VkVertexInputAttributeDescription, 3> attribute_descriptions{};
     attribute_descriptions[0].binding = 0;
     attribute_descriptions[0].location = 0;
     attribute_descriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
@@ -45,16 +46,24 @@ typedef struct Vertex {
     attribute_descriptions[1].location = 1;
     attribute_descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     attribute_descriptions[1].offset = offsetof(Vertex, color);
+
+    attribute_descriptions[2].binding = 0;
+    attribute_descriptions[2].location = 2;
+    attribute_descriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attribute_descriptions[2].offset = offsetof(Vertex, tex_coord);
+
     return attribute_descriptions;
   }
 } Vertex;
 
 // TODO: REMOVE THIS. WE JUST WANT TO DRAW SOME GEOMETRY FOR NOW. /MAYBE/ we'll
 // keep it for texture coords interleaved but big if
-const std::vector<Vertex> vertices = {{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                                      {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-                                      {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-                                      {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+const std::vector<Vertex> vertices = {
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}};
+
 const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 // TODO: Move these all to a 'vulkan types'. We should abstract more so we can
 // support other APIs potentially
@@ -134,6 +143,11 @@ typedef struct vulkan_object_shader {
 
 } vulkan_object_shader;
 
+typedef struct vulkan_texture {
+  vulkan_image image;
+  VkSampler sampler;
+} vulkan_texture;
+
 typedef struct backend_context {
   VkInstance instance;
   vulkan_device device;
@@ -157,6 +171,7 @@ typedef struct backend_context {
   std::vector<VkDescriptorSet> descriptor_sets;
   std::vector<vulkan_buffer> uniform_buffers;
   std::vector<void*> uniform_buffer_memory;
+  vulkan_texture default_texture;
 } backend_context;
 
 #define VK_CHECK(expr)               \

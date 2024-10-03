@@ -6,6 +6,7 @@
 #include "engine/renderer_types.inl"
 
 void create_descriptor_set(backend_context* context) {
+  // UBO
   VkDescriptorSetLayoutBinding ubo_layout_binding{};
   ubo_layout_binding.binding = 0;
   ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -13,12 +14,23 @@ void create_descriptor_set(backend_context* context) {
   ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
   ubo_layout_binding.pImmutableSamplers = nullptr;
 
+  VkDescriptorSetLayoutBinding sampler_layout_binding{};
+  sampler_layout_binding.binding = 1;
+  sampler_layout_binding.descriptorCount = 1;
+  sampler_layout_binding.descriptorType =
+      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  sampler_layout_binding.pImmutableSamplers = nullptr;
+  sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+  std::array<VkDescriptorSetLayoutBinding, 2> bindings = {
+      ubo_layout_binding, sampler_layout_binding};
+
   VkPipelineLayout pipeline_layout{};
 
   VkDescriptorSetLayoutCreateInfo layout_info{};
   layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  layout_info.bindingCount = 1;
-  layout_info.pBindings = &ubo_layout_binding;
+  layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
+  layout_info.pBindings = bindings.data();
 
   VK_CHECK(vkCreateDescriptorSetLayout(
       context->device.logical_device, &layout_info, nullptr,

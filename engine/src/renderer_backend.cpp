@@ -46,14 +46,13 @@ void renderer_create_texture() {
 
   vulkan_buffer_load_data(&context, &staging, 0, 0, width * height * 4, pixels);
 
-  vulkan_image default_tex_image;
-  vulkan_image_create(&context, height, width, &default_tex_image);
+  vulkan_image_create(&context, height, width, &context.default_texture.image);
   vulkan_image_transition_layout(
-      &context, &default_tex_image, VK_FORMAT_R8G8B8A8_SRGB,
+      &context, &context.default_texture.image, VK_FORMAT_R8G8B8A8_SRGB,
       VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-  vulkan_image_copy_from_buffer(&context, staging, default_tex_image, height,
-                                width);
-  vulkan_image_transition_layout(&context, &default_tex_image,
+  vulkan_image_copy_from_buffer(&context, staging,
+                                context.default_texture.image, height, width);
+  vulkan_image_transition_layout(&context, &context.default_texture.image,
                                  VK_FORMAT_R8G8B8A8_SRGB,
                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -61,21 +60,25 @@ void renderer_create_texture() {
   vulkan_buffer_destroy(&context, &staging);
 
   vulkan_image_create_view(&context, VK_FORMAT_R8G8B8A8_SRGB,
-                           &default_tex_image.handle, &default_tex_image.view);
+                           &context.default_texture.image.handle,
+                           &context.default_texture.image.view);
+
   VkSampler default_tex_sampler;
-  vulkan_image_create_sampler(&context, &default_tex_image,
-                              &default_tex_sampler);
+  vulkan_image_create_sampler(&context, &context.default_texture.image,
+                              &context.default_texture.sampler);
 }
 
 void create_descriptor_pool() {
-  VkDescriptorPoolSize pool_size{};
-  pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_size.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+  std::array<VkDescriptorPoolSize, 2> pool_size{};
+  pool_size[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  pool_size[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+  pool_size[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  pool_size[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
   VkDescriptorPoolCreateInfo pool_info{};
   pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  pool_info.poolSizeCount = 1;
-  pool_info.pPoolSizes = &pool_size;
+  pool_info.poolSizeCount = static_cast<uint32_t>(pool_size.size());
+  pool_info.pPoolSizes = pool_size.data();
   pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
   VK_CHECK(vkCreateDescriptorPool(context.device.logical_device, &pool_info,
@@ -102,19 +105,34 @@ void create_descriptor_set() {
     buffer_info.offset = 0;
     buffer_info.range = sizeof(UniformBufferObject);
 
-    VkWriteDescriptorSet descriptor_write{};
-    descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptor_write.dstSet = context.descriptor_sets[i];
-    descriptor_write.dstBinding = 0;
-    descriptor_write.dstArrayElement = 0;
-    descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptor_write.descriptorCount = 1;
-    descriptor_write.pBufferInfo = &buffer_info;
-    descriptor_write.pImageInfo = nullptr;
-    descriptor_write.pTexelBufferView = nullptr;
+    VkDescriptorImageInfo image_info{};
+    image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    image_info.imageView = context.default_texture.image.view;
+    image_info.sampler = context.default_texture.sampler;
 
-    vkUpdateDescriptorSets(context.device.logical_device, 1, &descriptor_write,
-                           0, nullptr);
+    std::array<VkWriteDescriptorSet, 2> descriptor_write{};
+    descriptor_write[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptor_write[0].dstSet = context.descriptor_sets[i];
+    descriptor_write[0].dstBinding = 0;
+    descriptor_write[0].dstArrayElement = 0;
+    descriptor_write[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptor_write[0].descriptorCount = 1;
+    descriptor_write[0].pBufferInfo = &buffer_info;
+    descriptor_write[0].pImageInfo = nullptr;
+    descriptor_write[0].pTexelBufferView = nullptr;
+
+    descriptor_write[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptor_write[1].dstSet = context.descriptor_sets[i];
+    descriptor_write[1].dstBinding = 1;
+    descriptor_write[1].dstArrayElement = 0;
+    descriptor_write[1].descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptor_write[1].descriptorCount = 1;
+    descriptor_write[1].pImageInfo = &image_info;
+
+    vkUpdateDescriptorSets(context.device.logical_device,
+                           descriptor_write.size(), descriptor_write.data(), 0,
+                           nullptr);
   }
 }
 
@@ -531,9 +549,6 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   create_sync_objects();
 
   create_buffers();
-
-  create_descriptor_pool();
-  create_descriptor_set();
 
   renderer_create_texture();
 
