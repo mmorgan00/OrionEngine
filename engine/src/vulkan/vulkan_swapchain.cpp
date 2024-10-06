@@ -1,5 +1,7 @@
 #include "engine/vulkan/vulkan_swapchain.h"
 
+#include <vulkan/vulkan_core.h>
+
 #include <algorithm>  // Necessary for std::clamp
 #include <limits>     // Necessary for std::numeric_limits
 #include <vector>
@@ -131,15 +133,17 @@ void create(backend_context *context) {
 
 void vulkan_swapchain_destroy(backend_context *context) {
   for (size_t i = 0; i < context->swapchain.framebuffers.size(); i++) {
-    if (context->swapchain.framebuffers[i]) {
+    if (context->swapchain.framebuffers[i] != VK_NULL_HANDLE) {
       vkDestroyFramebuffer(context->device.logical_device,
                            context->swapchain.framebuffers[i], nullptr);
     }
   }
 
   for (size_t i = 0; i < context->swapchain.views.size(); i++) {
-    vkDestroyImageView(context->device.logical_device,
-                       context->swapchain.views[i], nullptr);
+    if (context->swapchain.views[i] != VK_NULL_HANDLE) {
+      vkDestroyImageView(context->device.logical_device,
+                         context->swapchain.views[i], nullptr);
+    }
   }
 
   vkDestroySwapchainKHR(context->device.logical_device,

@@ -71,9 +71,7 @@ platform_state *platform_initialize() {
  * platform state uses
  */
 void platform_shutdown() {
-  glfwDestroyWindow(plat_state->window);
-
-  glfwTerminate();
+  // TODO: Add platform related things later
 }
 
 /**

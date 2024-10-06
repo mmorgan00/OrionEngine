@@ -7,4 +7,6 @@ void application_initialize(platform_state* plat_state);
 
 bool application_run();
 
+void application_shutdown();
+
 #endif

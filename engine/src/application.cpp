@@ -10,7 +10,18 @@
 
 static platform_state *plat_state;
 
-void application_initialize(platform_state *state) { plat_state = state; }
+void key_callback(GLFWwindow *window, int key, int scancode, int action,
+                  int mods) {
+  if (key == GLFW_KEY_E && action == GLFW_PRESS)
+    OE_LOG(LOG_LEVEL_DEBUG, "E KEY PRESSED");
+
+  if (key == GLFW_KEY_Q && action == GLFW_PRESS) application_shutdown();
+}
+void application_initialize(platform_state *state) {
+  plat_state = state;
+
+  glfwSetKeyCallback(plat_state->window, key_callback);
+}
 
 bool application_run() {
   while (!glfwWindowShouldClose(plat_state->window)) {
@@ -19,4 +30,9 @@ bool application_run() {
   }
   OE_LOG(LOG_LEVEL_DEBUG, "Application terminating");
   return false;
+}
+
+void application_shutdown() {
+  renderer_shutdown();
+  glfwTerminate();
 }

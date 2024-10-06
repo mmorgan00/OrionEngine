@@ -167,6 +167,7 @@ typedef struct backend_context {
   std::vector<VkSemaphore> render_finished_semaphore;
   std::vector<VkFence> in_flight_fence;
   uint32_t current_frame;
+  vulkan_object_shader object_shader;
   VkDescriptorPool descriptor_pool;
   std::vector<VkDescriptorSet> descriptor_sets;
   std::vector<vulkan_buffer> uniform_buffers;

@@ -558,26 +558,21 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 }
 
 void renderer_backend_shutdown() {
+  OE_LOG(LOG_LEVEL_INFO, "Renderer shutting down");
   vkDeviceWaitIdle(context.device.logical_device);
 
-  vulkan_swapchain_destroy(&context);
-  // TODO: Fix this
-  // vkDestroyImageView(context.device.logical_device, default_tex_image,
-  // nullptr);
-
-  // vkDestroyImage(context.device.logical_device, textureImage, nullptr);
-  // vkFreeMemory(device, textureImageMemory, nullptr);
-
-  // Opposite order of creation
-  vkDeviceWaitIdle(context.device.logical_device);
+  vulkan_buffer_destroy(&context, &context.vert_buff);
+  vulkan_buffer_destroy(&context, &context.index_buff);
 
   for (size_t i = 0; i < context.uniform_buffers.size(); i++) {
     vulkan_buffer_destroy(&context, &context.uniform_buffers[i]);
   }
-  vulkan_buffer_destroy(&context, &context.vert_buff);
-  vulkan_buffer_destroy(&context, &context.index_buff);
 
-  vulkan_swapchain_destroy(&context);
+  vkDestroyPipeline(context.device.logical_device, context.pipeline.handle,
+                    nullptr);
+
+  vkDestroyPipelineLayout(context.device.logical_device,
+                          context.pipeline.layout, nullptr);
 
   vkDestroyDescriptorPool(context.device.logical_device,
                           context.descriptor_pool, nullptr);
@@ -585,13 +580,7 @@ void renderer_backend_shutdown() {
   vkDestroyDescriptorSetLayout(context.device.logical_device,
                                context.pipeline.descriptor_set_layout, nullptr);
 
-  vkDestroyPipeline(context.device.logical_device, context.pipeline.handle,
-                    nullptr);
-  vkDestroyPipelineLayout(context.device.logical_device,
-                          context.pipeline.layout, nullptr);
-  vkDestroyRenderPass(context.device.logical_device,
-                      context.main_renderpass.handle, nullptr);
-  // cleanup any buffers
+  // vulkan_shader_destroy(&context);
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     vkDestroyFence(context.device.logical_device, context.in_flight_fence[i],
@@ -609,6 +598,20 @@ void renderer_backend_shutdown() {
 
   vkDestroyCommandPool(context.device.logical_device, context.command_pool,
                        nullptr);
+
+  vkDestroyRenderPass(context.device.logical_device,
+                      context.main_renderpass.handle, nullptr);
+
+  OE_LOG(LOG_LEVEL_INFO, "Destroying swapchain");
+  vulkan_swapchain_destroy(&context);
+  // TODO: Fix this
+  // vkDestroyImageView(context.device.logical_device, default_tex_image,
+  // nullptr);
+
+  // vkDestroyImage(context.device.logical_device, textureImage, nullptr);
+  // vkFreeMemory(device, textureImageMemory, nullptr);
+
+  // Opposite order of creation
 
   vkDestroyDevice(context.device.logical_device, nullptr);
 
