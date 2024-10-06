@@ -1,6 +1,7 @@
 #ifndef RENDERER_TYPES
 #define RENDERER_TYPES
 
+#define VULKAN_HPP_NO_CONSTRUCTORS
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -8,6 +9,7 @@
 #include <array>
 #include <glm/glm.hpp>
 #include <vector>
+#include <vulkan/vulkan.hpp>
 
 #include "engine/asserts.h"
 
@@ -149,7 +151,7 @@ typedef struct vulkan_texture {
 } vulkan_texture;
 
 typedef struct backend_context {
-  VkInstance instance;
+  vk::Instance instance;
   vulkan_device device;
   GLFWwindow* window;
   VkSurfaceKHR surface;
@@ -160,7 +162,7 @@ typedef struct backend_context {
   vulkan_buffer vert_buff;
   vulkan_buffer index_buff;
 #ifndef NDEBUG
-  VkDebugUtilsMessengerEXT debug_messenger;
+  vk::DebugUtilsMessengerEXT debug_messenger;
 #endif
   vulkan_swapchain swapchain;
   std::vector<VkSemaphore> image_available_semaphore;

@@ -32,6 +32,22 @@
 
 static backend_context context;
 
+PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT;
+PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT;
+
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(
+    VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
+    const VkAllocationCallbacks *pAllocator,
+    VkDebugUtilsMessengerEXT *pMessenger) {
+  return pfnVkCreateDebugUtilsMessengerEXT(instance, pCreateInfo, pAllocator,
+                                           pMessenger);
+}
+
+VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(
+    VkInstance instance, VkDebugUtilsMessengerEXT messenger,
+    VkAllocationCallbacks const *pAllocator) {
+  return pfnVkDestroyDebugUtilsMessengerEXT(instance, messenger, pAllocator);
+}
 void renderer_create_texture() {
   // TODO: Temp code
   int width, height, channels;
@@ -421,6 +437,12 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   // Initialize Vulkan Instance
 
   context.current_frame = 0;
+  vk::ApplicationInfo app_info{.pApplicationName = "Parallax",
+                               .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
+                               .pEngineName = "Orion Engine",
+                               .engineVersion = VK_MAKE_VERSION(1, 0, 0),
+                               .apiVersion = VK_API_VERSION_1_2};
+
   VkApplicationInfo appInfo = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
   appInfo.apiVersion = VK_API_VERSION_1_2;
   appInfo.pApplicationName = "Parallax";
@@ -432,31 +454,28 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   createInfo.pApplicationInfo = &appInfo;
 
   // Extensions
-  uint32_t extensionCount = 0;
-  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-  std::vector<VkExtensionProperties> extensions(extensionCount);
-  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount,
+  uint32_t extension_count = 0;
+  vkEnumerateInstanceExtensionProperties(nullptr, &extension_count, nullptr);
+  std::vector<VkExtensionProperties> extensions(extension_count);
+  vkEnumerateInstanceExtensionProperties(nullptr, &extension_count,
                                          extensions.data());
   // Create a vector to hold the extension names
-  std::vector<const char *> extensionNames;
+  std::vector<const char *> extension_names;
   for (const auto &extension : extensions) {
-    extensionNames.push_back(
+    extension_names.push_back(
         extension.extensionName);  // Add the extension name to the vector
   }
   OE_LOG(LOG_LEVEL_DEBUG, "available extensions:");
 
-  for (const auto &extension : extensionNames) {
+  for (const auto &extension : extension_names) {
     OE_LOG(LOG_LEVEL_DEBUG, "\t%s", extension);
   }
-
+  uint32_t enabled_layer_count = 0;
   // This is initialized here, if in debug mode they will be overwritten
-  createInfo.enabledLayerCount = 0;
-
-  createInfo.pNext = nullptr;
 
 #ifndef NDEBUG
 
-  extensionNames.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+  extension_names.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif
 
   uint32_t glfwExtensionCount = 0;
@@ -464,52 +483,74 @@ bool renderer_backend_initialize(platform_state *plat_state) {
       glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
   for (size_t i = 0; i < glfwExtensionCount; i++) {
-    extensionNames.push_back(glfwExtensions[i]);
+    extension_names.push_back(glfwExtensions[i]);
   }
-  extensionCount += glfwExtensionCount;
-
-  createInfo.enabledExtensionCount = extensionCount;
-  createInfo.ppEnabledExtensionNames = extensionNames.data();
+  extension_count += glfwExtensionCount;
 
   if (!check_validation_layer_support()) {
     OE_LOG(LOG_LEVEL_FATAL, "Failed to get validation layers!");
     return false;
   }
-  std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-  createInfo.enabledLayerCount = validationLayers.size();
+  std::vector<const char *> validation_layers = {"VK_LAYER_KHRONOS_validation"};
 
-  createInfo.ppEnabledLayerNames = validationLayers.data();
+  vk::InstanceCreateInfo ci = {
+      .pApplicationInfo = &app_info,
+      .enabledLayerCount = static_cast<uint32_t>(validation_layers.size()),
+      .ppEnabledLayerNames = validation_layers.data(),
+      .enabledExtensionCount = extension_count,
+      .ppEnabledExtensionNames = extension_names.data()};
 
-  if (vkCreateInstance(&createInfo, nullptr, &context.instance) != VK_SUCCESS) {
+  context.instance = vk::createInstance(ci);
+
+  if (!context.instance) {
     OE_LOG(LOG_LEVEL_FATAL, "Failed to create vulkan instance!");
     return false;
   }
-  // Debugger
+
+// Debugger
 #ifndef NDEBUG
+  pfnVkCreateDebugUtilsMessengerEXT =
+      reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
+          context.instance.getProcAddr("vkCreateDebugUtilsMessengerEXT"));
+  if (!pfnVkCreateDebugUtilsMessengerEXT) {
+    OE_LOG(LOG_LEVEL_ERROR,
+           "GetInstanceProcAddr: Unable to find "
+           "pfnVkCreateDebugUtilsMessengerEXT function.");
+    return false;
+  }
 
-  uint32_t log_severity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
-                          VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                          VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
-                          VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
+  pfnVkDestroyDebugUtilsMessengerEXT =
+      reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
+          context.instance.getProcAddr("vkDestroyDebugUtilsMessengerEXT"));
+  if (!pfnVkDestroyDebugUtilsMessengerEXT) {
+    OE_LOG(LOG_LEVEL_ERROR,
+           "GetInstanceProcAddr: Unable to find "
+           "pfnVkDestroyDebugUtilsMessengerEXT function");
+    return false;
+  }
+  vk::Flags<vk::DebugUtilsMessageSeverityFlagBitsEXT> log_severity =
+      vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
+      vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+      vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
+      vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose;
+  vk::DebugUtilsMessengerCreateInfoEXT debug_ci = {
+      .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
+                         vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+                         vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
+                         vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose,
+      .messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                     vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+                     vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation,
+      .pfnUserCallback = vk_debug_callback};
 
-  VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
-      VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
-  debug_create_info.messageSeverity = log_severity;
-  debug_create_info.messageType =
-      VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-      VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT |
-      VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
-  debug_create_info.pfnUserCallback = vk_debug_callback;
+  context.debug_messenger =
+      context.instance.createDebugUtilsMessengerEXT(debug_ci);
 
-  PFN_vkCreateDebugUtilsMessengerEXT func =
-      (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-          context.instance, "vkCreateDebugUtilsMessengerEXT");
-  OE_ASSERT_MSG(func, "Failed to create debug messenger!");
-  VK_CHECK(func(context.instance, &debug_create_info, nullptr,
-                &context.debug_messenger));
+  OE_ASSERT_MSG(context.debug_messenger, "Failed to create debug messenger!");
 
   OE_LOG(LOG_LEVEL_DEBUG, "Vulkan debugger created.");
-  createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_create_info;
+  ci.pNext = &debug_ci;
+
 #endif
 
   // Save a ref to the window from the plat platform state
@@ -614,15 +655,6 @@ void renderer_backend_shutdown() {
   // Opposite order of creation
 
   vkDestroyDevice(context.device.logical_device, nullptr);
-
-#ifndef NDEBUG
-
-  // Destroy debug messenger
-  auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-      context.instance, "vkDestroyDebugUtilsMessengerEXT");
-  func(context.instance, context.debug_messenger, nullptr);
-
-#endif
 
   vkDestroySurfaceKHR(context.instance, context.surface, nullptr);
   vkDestroyInstance(context.instance, nullptr);
