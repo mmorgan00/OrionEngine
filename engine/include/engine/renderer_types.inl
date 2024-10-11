@@ -72,22 +72,22 @@ const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 #define MAX_FRAMES_IN_FLIGHT 2
 
 typedef struct vulkan_image {
-  VkImage handle;
-  VkDeviceMemory memory;
-  VkImageView view;
+  vk::Image handle;
+  vk::DeviceMemory memory;
+  vk::ImageView view;
 } vulkan_image;
 
 typedef struct vulkan_swapchain_support_info {
-  VkSurfaceCapabilitiesKHR capabilities;
+  vk::SurfaceCapabilitiesKHR capabilities;
   uint32_t format_count;
-  std::vector<VkSurfaceFormatKHR> formats;
+  std::vector<vk::SurfaceFormatKHR> formats;
   uint32_t present_mode_count;
-  VkPresentModeKHR* present_modes;
+  vk::PresentModeKHR* present_modes;
 } vulkan_swapchain_support_info;
 
 typedef struct vulkan_device {
-  VkPhysicalDevice physical_device;
-  VkDevice logical_device;
+  vk::PhysicalDevice physical_device;
+  vk::Device logical_device;
   vulkan_swapchain_support_info swapchain_support;
   int graphics_queue_index;
   int present_queue_index;
@@ -107,12 +107,12 @@ typedef struct vulkan_device {
 } vulkan_device;
 
 typedef struct vulkan_renderpass {
-  VkRenderPass handle;
+  vk::RenderPass handle;
 } vulkan_renderpass;
 
 typedef struct vulkan_swapchain {
-  VkFormat image_format;
-  VkSwapchainKHR handle;
+  vk::Format image_format;
+  vk::SwapchainKHR handle;
   VkExtent2D extent;
   uint32_t image_count;
   std::vector<VkImage> images;
@@ -147,11 +147,11 @@ typedef struct vulkan_object_shader {
 
 typedef struct vulkan_texture {
   vulkan_image image;
-  VkSampler sampler;
+  vk::Sampler sampler;
 } vulkan_texture;
 
 typedef struct backend_context {
-  vk::Instance instance;
+  vk::UniqueInstance instance;
   vulkan_device device;
   GLFWwindow* window;
   VkSurfaceKHR surface;

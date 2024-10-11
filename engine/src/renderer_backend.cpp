@@ -65,17 +65,17 @@ void renderer_create_texture() {
   vulkan_image_create(&context, height, width, &context.default_texture.image);
   vulkan_image_transition_layout(
       &context, &context.default_texture.image, VK_FORMAT_R8G8B8A8_SRGB,
-      VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+      vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
   vulkan_image_copy_from_buffer(&context, staging,
                                 context.default_texture.image, height, width);
   vulkan_image_transition_layout(&context, &context.default_texture.image,
                                  VK_FORMAT_R8G8B8A8_SRGB,
-                                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                                 vk::ImageLayout::eTransferDstOptimal,
+                                 vk::ImageLayout::eShaderReadOnlyOptimal);
 
   vulkan_buffer_destroy(&context, &staging);
 
-  vulkan_image_create_view(&context, VK_FORMAT_R8G8B8A8_SRGB,
+  vulkan_image_create_view(&context, vk::Format::eR8G8B8A8Srgb,
                            &context.default_texture.image.handle,
                            &context.default_texture.image.view);
 
@@ -500,7 +500,7 @@ bool renderer_backend_initialize(platform_state *plat_state) {
       .enabledExtensionCount = extension_count,
       .ppEnabledExtensionNames = extension_names.data()};
 
-  context.instance = vk::createInstance(ci);
+  context.instance = vk::createInstanceUnique(ci);
 
   if (!context.instance) {
     OE_LOG(LOG_LEVEL_FATAL, "Failed to create vulkan instance!");
@@ -511,7 +511,7 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 #ifndef NDEBUG
   pfnVkCreateDebugUtilsMessengerEXT =
       reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
-          context.instance.getProcAddr("vkCreateDebugUtilsMessengerEXT"));
+          context.instance.get().getProcAddr("vkCreateDebugUtilsMessengerEXT"));
   if (!pfnVkCreateDebugUtilsMessengerEXT) {
     OE_LOG(LOG_LEVEL_ERROR,
            "GetInstanceProcAddr: Unable to find "
@@ -521,7 +521,8 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 
   pfnVkDestroyDebugUtilsMessengerEXT =
       reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
-          context.instance.getProcAddr("vkDestroyDebugUtilsMessengerEXT"));
+          context.instance.get().getProcAddr(
+              "vkDestroyDebugUtilsMessengerEXT"));
   if (!pfnVkDestroyDebugUtilsMessengerEXT) {
     OE_LOG(LOG_LEVEL_ERROR,
            "GetInstanceProcAddr: Unable to find "
@@ -544,7 +545,7 @@ bool renderer_backend_initialize(platform_state *plat_state) {
       .pfnUserCallback = vk_debug_callback};
 
   context.debug_messenger =
-      context.instance.createDebugUtilsMessengerEXT(debug_ci);
+      context.instance.get().createDebugUtilsMessengerEXT(debug_ci);
 
   OE_ASSERT_MSG(context.debug_messenger, "Failed to create debug messenger!");
 
@@ -556,8 +557,8 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   // Save a ref to the window from the plat platform state
   context.window = plat_state->window;
   // Now make the surface - we're using GLFW so just....use it
-  VK_CHECK(glfwCreateWindowSurface(context.instance, context.window, nullptr,
-                                   &context.surface));
+  VK_CHECK(glfwCreateWindowSurface(context.instance.get(), context.window,
+                                   nullptr, &context.surface));
   OE_LOG(LOG_LEVEL_DEBUG, "Vulkan surface created!");
   // Device, both physical and logical, queues included
   if (!vulkan_device_create(&context)) {
@@ -599,65 +600,80 @@ bool renderer_backend_initialize(platform_state *plat_state) {
 }
 
 void renderer_backend_shutdown() {
-  OE_LOG(LOG_LEVEL_INFO, "Renderer shutting down");
-  vkDeviceWaitIdle(context.device.logical_device);
+  try {
+    OE_LOG(LOG_LEVEL_INFO, "Renderer shutting down");
+    vkDeviceWaitIdle(context.device.logical_device);
 
-  vulkan_buffer_destroy(&context, &context.vert_buff);
-  vulkan_buffer_destroy(&context, &context.index_buff);
+    vulkan_buffer_destroy(&context, &context.vert_buff);
+    vulkan_buffer_destroy(&context, &context.index_buff);
 
-  for (size_t i = 0; i < context.uniform_buffers.size(); i++) {
-    vulkan_buffer_destroy(&context, &context.uniform_buffers[i]);
+    for (size_t i = 0; i < context.uniform_buffers.size(); i++) {
+      vulkan_buffer_destroy(&context, &context.uniform_buffers[i]);
+    }
+
+    vkDestroyPipeline(context.device.logical_device, context.pipeline.handle,
+                      nullptr);
+
+    vkDestroyPipelineLayout(context.device.logical_device,
+                            context.pipeline.layout, nullptr);
+
+    vkDestroyDescriptorPool(context.device.logical_device,
+                            context.descriptor_pool, nullptr);
+
+    vkDestroyDescriptorSetLayout(context.device.logical_device,
+                                 context.pipeline.descriptor_set_layout,
+                                 nullptr);
+
+    // vulkan_shader_destroy(&context);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+      vkDestroyFence(context.device.logical_device, context.in_flight_fence[i],
+                     nullptr);
+      vkDestroySemaphore(context.device.logical_device,
+                         context.image_available_semaphore[i], nullptr);
+
+      vkDestroySemaphore(context.device.logical_device,
+                         context.render_finished_semaphore[i], nullptr);
+    }
+
+    vkFreeCommandBuffers(context.device.logical_device, context.command_pool,
+                         context.command_buffer.size(),
+                         context.command_buffer.data());
+
+    vkDestroyCommandPool(context.device.logical_device, context.command_pool,
+                         nullptr);
+
+    vkDestroyRenderPass(context.device.logical_device,
+                        context.main_renderpass.handle, nullptr);
+
+    OE_LOG(LOG_LEVEL_INFO, "Destroying swapchain");
+    // vulkan_swapchain_destroy(&context);
+    // TODO: Fix this
+    // vkDestroyImageView(context.device.logical_device, default_tex_image,
+    // nullptr);
+
+    // vkDestroyImage(context.device.logical_device, textureImage, nullptr);
+    // vkFreeMemory(device, textureImageMemory, nullptr);
+
+    // Opposite order of creation
+
+    vkDestroyDevice(context.device.logical_device, nullptr);
+
+    vkDestroySurfaceKHR(context.instance.get(), context.surface, nullptr);
+#ifndef NDEBUG
+    context.instance.get().destroyDebugUtilsMessengerEXT(
+        context.debug_messenger);
+#endif
+  } catch (vk::SystemError &err) {
+    OE_LOG(LOG_LEVEL_ERROR, "vk::SystemError: %s", err.what());
+    exit(-1);
+  } catch (std::exception &err) {
+    OE_LOG(LOG_LEVEL_ERROR, "std::exceptoin: %s", err.what());
+    exit(-1);
+  } catch (...) {
+    OE_LOG(LOG_LEVEL_ERROR, "unknown error");
+    exit(-1);
   }
-
-  vkDestroyPipeline(context.device.logical_device, context.pipeline.handle,
-                    nullptr);
-
-  vkDestroyPipelineLayout(context.device.logical_device,
-                          context.pipeline.layout, nullptr);
-
-  vkDestroyDescriptorPool(context.device.logical_device,
-                          context.descriptor_pool, nullptr);
-
-  vkDestroyDescriptorSetLayout(context.device.logical_device,
-                               context.pipeline.descriptor_set_layout, nullptr);
-
-  // vulkan_shader_destroy(&context);
-
-  for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-    vkDestroyFence(context.device.logical_device, context.in_flight_fence[i],
-                   nullptr);
-    vkDestroySemaphore(context.device.logical_device,
-                       context.image_available_semaphore[i], nullptr);
-
-    vkDestroySemaphore(context.device.logical_device,
-                       context.render_finished_semaphore[i], nullptr);
-  }
-
-  vkFreeCommandBuffers(context.device.logical_device, context.command_pool,
-                       context.command_buffer.size(),
-                       context.command_buffer.data());
-
-  vkDestroyCommandPool(context.device.logical_device, context.command_pool,
-                       nullptr);
-
-  vkDestroyRenderPass(context.device.logical_device,
-                      context.main_renderpass.handle, nullptr);
-
-  OE_LOG(LOG_LEVEL_INFO, "Destroying swapchain");
-  vulkan_swapchain_destroy(&context);
-  // TODO: Fix this
-  // vkDestroyImageView(context.device.logical_device, default_tex_image,
-  // nullptr);
-
-  // vkDestroyImage(context.device.logical_device, textureImage, nullptr);
-  // vkFreeMemory(device, textureImageMemory, nullptr);
-
-  // Opposite order of creation
-
-  vkDestroyDevice(context.device.logical_device, nullptr);
-
-  vkDestroySurfaceKHR(context.instance, context.surface, nullptr);
-  vkDestroyInstance(context.instance, nullptr);
 }
 
 bool check_validation_layer_support() {

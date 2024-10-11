@@ -1,12 +1,13 @@
+
 #include "engine/vulkan/vulkan_device.h"
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
 #include <vector>
+#include <vulkan/vulkan_structs.hpp>
 
 #include "engine/logger.h"
-#include "engine/renderer_types.inl"
 
 typedef struct vulkan_physical_device_requirements {
   bool graphics;
@@ -29,21 +30,13 @@ typedef struct vulkan_physical_device_queue_family_info {
 } vulkan_physical_device_queue_family_info;
 
 void vulkan_device_query_swapchain_support(
-    VkPhysicalDevice physical_device, VkSurfaceKHR surface,
+    vk::PhysicalDevice physical_device, VkSurfaceKHR surface,
     vulkan_swapchain_support_info *out_support_info) {
-  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface,
-                                            &out_support_info->capabilities);
+  out_support_info->capabilities =
+      physical_device.getSurfaceCapabilitiesKHR(surface);
 
   uint32_t format_count;
-  vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &format_count,
-                                       nullptr);
-
-  if (format_count != 0) {
-    out_support_info->formats.resize(format_count);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface,
-                                         &format_count,
-                                         out_support_info->formats.data());
-  }
+  out_support_info->formats = physical_device.getSurfaceFormatsKHR(surface);
 
   return;
 }
@@ -53,9 +46,9 @@ void vulkan_device_query_swapchain_support(
  * requirements
  */
 bool physical_device_meets_requirements(
-    VkPhysicalDevice device, VkSurfaceKHR surface,
-    const VkPhysicalDeviceProperties *properties,
-    const VkPhysicalDeviceFeatures *features,
+    vk::PhysicalDevice device, VkSurfaceKHR surface,
+    const vk::PhysicalDeviceProperties *properties,
+    const vk::PhysicalDeviceFeatures *features,
     const vulkan_physical_device_requirements *requirements,
     vulkan_physical_device_queue_family_info *out_queue_info,
     vulkan_swapchain_support_info *out_swapchain_support) {
@@ -66,7 +59,7 @@ bool physical_device_meets_requirements(
   out_queue_info->transfer_family_index = -1;
 
   if (requirements->discrete_gpu) {
-    if (properties->deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+    if (properties->deviceType != vk::PhysicalDeviceType::eDiscreteGpu) {
       OE_LOG(LOG_LEVEL_INFO,
              "Device is not a discrete GPU, and one is required. Skipping.");
       return false;
@@ -74,10 +67,8 @@ bool physical_device_meets_requirements(
   }
 
   uint32_t queue_family_count = 0;
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, 0);
-  VkQueueFamilyProperties queue_families[32];
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count,
-                                           queue_families);
+  vk::QueueFamilyProperties queue_families[32];
+  device.getQueueFamilyProperties(&queue_family_count, queue_families);
 
   // Look at each queue and see what queues it supports
   OE_LOG(LOG_LEVEL_INFO, "Graphics | Present | Compute | Transfer | Name");
@@ -86,19 +77,19 @@ bool physical_device_meets_requirements(
     short current_transfer_score = 0;
 
     // Graphics queue?
-    if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+    if (queue_families[i].queueFlags & vk::QueueFlagBits::eGraphics) {
       out_queue_info->graphics_family_index = i;
       ++current_transfer_score;
     }
 
     // Compute queue?
-    if (queue_families[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+    if (queue_families[i].queueFlags & vk::QueueFlagBits::eCompute) {
       out_queue_info->compute_family_index = i;
       ++current_transfer_score;
     }
 
     // Transfer queue?
-    if (queue_families[i].queueFlags & VK_QUEUE_TRANSFER_BIT) {
+    if (queue_families[i].queueFlags & vk::QueueFlagBits::eTransfer) {
       // Take the index if it is the current lowest. This increases the
       // liklihood that it is a dedicated transfer queue.
       if (current_transfer_score <= min_transfer_score) {
@@ -109,9 +100,13 @@ bool physical_device_meets_requirements(
 
     // Dedicated present queue?
     VkBool32 supports_present = VK_FALSE;
-    VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface,
-                                                  &supports_present));
+    vk::Result result =
+        device.getSurfaceSupportKHR(i, surface, &supports_present);
 
+    if (result != vk::Result::eSuccess) {
+      throw std::runtime_error(
+          "Error: vkGetPhysicalDeviceSurfaceSupportKHR failed!");
+    }
     if (supports_present) {
       out_queue_info->present_family_index = i;
     }
@@ -119,10 +114,10 @@ bool physical_device_meets_requirements(
 
   // Print out the device info
   OE_LOG(LOG_LEVEL_INFO, "       %d |       %d |       %d |        %d | %s",
-         out_queue_info->graphics_family_index != -1,
-         out_queue_info->present_family_index != -1,
-         out_queue_info->compute_family_index != -1,
-         out_queue_info->transfer_family_index != -1, properties->deviceName);
+         out_queue_info->graphics_family_index,
+         out_queue_info->present_family_index,
+         out_queue_info->compute_family_index,
+         out_queue_info->transfer_family_index, properties->deviceName.data());
 
   if ((!requirements->graphics ||
        (requirements->graphics &&
@@ -151,24 +146,17 @@ bool physical_device_meets_requirements(
   // Device extensions.
   if (requirements->device_extension_names.data()) {
     OE_LOG(LOG_LEVEL_DEBUG, "Checking extensions");
-    uint32_t available_extension_count = 0;
-    std::vector<VkExtensionProperties> available_extensions;
-    VK_CHECK(vkEnumerateDeviceExtensionProperties(
-        device, 0, &available_extension_count, 0));
-    if (available_extension_count != 0) {
-      available_extensions =
-          std::vector<VkExtensionProperties>(available_extension_count);
+    std::vector<vk::ExtensionProperties> available_extensions =
+        device.enumerateDeviceExtensionProperties();
 
-      VK_CHECK(vkEnumerateDeviceExtensionProperties(
-          device, 0, &available_extension_count, available_extensions.data()));
-
+    if (available_extensions.size() != 0) {
       uint32_t required_extension_count =
           requirements->device_extension_names.size();
       for (uint32_t i = 0; i < required_extension_count; ++i) {
         bool found = false;
-        for (uint32_t j = 0; j < available_extension_count; ++j) {
+        for (uint32_t j = 0; j < available_extensions.size(); ++j) {
           if (requirements->device_extension_names[i] ==
-              available_extensions[j].extensionName) {
+              available_extensions[j].extensionName.data()) {
             found = true;
             break;
           }
@@ -205,33 +193,26 @@ bool physical_device_meets_requirements(
 
 bool select_physical_device(backend_context *context) {
   // query for GPUS that support vulkan
-  uint32_t physical_device_count = 0;
-  VK_CHECK(
-      vkEnumeratePhysicalDevices(context->instance, &physical_device_count, 0));
-  if (physical_device_count == 0) {
+  std::vector<vk::PhysicalDevice> physical_devices =
+      context->instance.get().enumeratePhysicalDevices();
+
+  if (physical_devices.size() == 0) {
     OE_LOG(LOG_LEVEL_FATAL, "No devices which support Vulkan were found.");
     return false;
   }
-
-  // Check for suitability
-  VkPhysicalDevice physical_devices[32];
-  VK_CHECK(vkEnumeratePhysicalDevices(context->instance, &physical_device_count,
-                                      physical_devices));
-
-  OE_LOG(LOG_LEVEL_INFO, "Found %i devices", physical_device_count);
+  OE_LOG(LOG_LEVEL_INFO, "Found %i devices", physical_devices.size());
   // Check each device
-  for (uint32_t i = 0; i < physical_device_count; i++) {
+  for (uint32_t i = 0; i < physical_devices.size(); i++) {
     // Start with properties, IE is it a discrete GPU (big one)
-    VkPhysicalDeviceProperties properties;
-    vkGetPhysicalDeviceProperties(physical_devices[i], &properties);
+    vk::PhysicalDeviceProperties properties =
+        physical_devices[i].getProperties();
 
     // Features, such as geometry shader support etc
-    VkPhysicalDeviceFeatures features;
-    vkGetPhysicalDeviceFeatures(physical_devices[i], &features);
+    vk::PhysicalDeviceFeatures features = physical_devices[i].getFeatures();
 
     // Memory support. Will be nice to have if we do big time graphics
-    VkPhysicalDeviceMemoryProperties memory;
-    vkGetPhysicalDeviceMemoryProperties(physical_devices[i], &memory);
+    vk::PhysicalDeviceMemoryProperties memory =
+        physical_devices[i].getMemoryProperties();
 
     // Our little handy thing.
     // TODO: Make this come from a config file maybe?
@@ -256,19 +237,19 @@ bool select_physical_device(backend_context *context) {
       // GPU type, etc.
       switch (properties.deviceType) {
         default:
-        case VK_PHYSICAL_DEVICE_TYPE_OTHER:
+        case vk::PhysicalDeviceType::eOther:
           OE_LOG(LOG_LEVEL_INFO, "GPU type is Unknown.");
           break;
-        case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+        case vk::PhysicalDeviceType::eIntegratedGpu:
           OE_LOG(LOG_LEVEL_INFO, "GPU type is Integrated.");
           break;
-        case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+        case vk::PhysicalDeviceType::eDiscreteGpu:
           OE_LOG(LOG_LEVEL_INFO, "GPU type is Discrete.");
           break;
-        case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+        case vk::PhysicalDeviceType::eVirtualGpu:
           OE_LOG(LOG_LEVEL_INFO, "GPU type is Virtual.");
           break;
-        case VK_PHYSICAL_DEVICE_TYPE_CPU:
+        case vk::PhysicalDeviceType::eCpu:
           OE_LOG(LOG_LEVEL_INFO, "GPU type is CPU.");
           break;
       }
@@ -288,11 +269,13 @@ bool select_physical_device(backend_context *context) {
       for (uint32_t j = 0; j < memory.memoryHeapCount; ++j) {
         float memory_size_gib =
             (((float)memory.memoryHeaps[j].size) / 1024.0f / 1024.0f / 1024.0f);
-        if (memory.memoryHeaps[j].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
-          OE_LOG(LOG_LEVEL_INFO, "Local GPU memory: %.2f GiB", memory_size_gib);
+        if (memory.memoryHeaps[j].flags &
+            vk::MemoryHeapFlagBits::eDeviceLocal) {
+          OE_LOG(LOG_LEVEL_INFO, "Local GPU memory: %.2f GiB",
+                 static_cast<double>(memory_size_gib));
         } else {
           OE_LOG(LOG_LEVEL_INFO, "Shared System memory: %.2f GiB",
-                 memory_size_gib);
+                 static_cast<double>(memory_size_gib));
         }
       }
 #endif
@@ -353,15 +336,13 @@ bool vulkan_device_create(backend_context *context) {
     indices[index++] = context->device.transfer_queue_index;
   }
 
-  VkDeviceQueueCreateInfo queue_create_infos[32];
+  std::vector<vk::DeviceQueueCreateInfo> queue_create_infos(32);
   for (uint32_t i = 0; i < index_count; ++i) {
-    queue_create_infos[i].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queue_create_infos[i].queueFamilyIndex = indices[i];
     queue_create_infos[i].queueCount = 1;
     if (indices[i] == context->device.graphics_queue_index) {
       queue_create_infos[i].queueCount = 2;
     }
-    queue_create_infos[i].flags = 0;
     queue_create_infos[i].pNext = 0;
     float queue_priority = 1.0f;
     queue_create_infos[i].pQueuePriorities = &queue_priority;
@@ -369,25 +350,31 @@ bool vulkan_device_create(backend_context *context) {
 
   // Request device features.
   // TODO: should be config driven
-  VkPhysicalDeviceFeatures device_features = {};
+  vk::PhysicalDeviceFeatures device_features = {};
   device_features.samplerAnisotropy = VK_TRUE;  // Request anistrophy
 
-  VkDeviceCreateInfo device_create_info = {
-      VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
-  device_create_info.queueCreateInfoCount = index_count;
-  device_create_info.pQueueCreateInfos = queue_create_infos;
-  device_create_info.pEnabledFeatures = &device_features;
-  device_create_info.enabledExtensionCount = 1;
   const char *extension_names = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
-  device_create_info.ppEnabledExtensionNames = &extension_names;
 
-  // Deprecated and ignored, so pass nothing.
-  device_create_info.enabledLayerCount = 0;
-  device_create_info.ppEnabledLayerNames = 0;
+  vk::DeviceCreateInfo device_ci{
+      .queueCreateInfoCount = index_count,
+      .pQueueCreateInfos = queue_create_infos.data(),
+      .enabledLayerCount = 0,
+      .ppEnabledLayerNames = 0,
+      .enabledExtensionCount = 1,
+      .ppEnabledExtensionNames = &extension_names,
+      .pEnabledFeatures = &device_features,
+  };
 
-  // Create the device.
-  VK_CHECK(vkCreateDevice(context->device.physical_device, &device_create_info,
-                          nullptr, &context->device.logical_device));
+  // vk::DeviceCreateInfo device_create_info{
+  //     .queueCreateInfoCount = index_count,
+  //     .pQueueCreateInfos = queue_create_infos.data(),
+  //     .enabledExtensionCount = 1,
+  //     .ppEnabledExtensionNames = &extension_names,
+  //     .pEnabledFeatures = &device_features};
+
+  context->device.logical_device =
+      context->device.physical_device.createDevice(device_ci);
+  // Deprecated and ignored, so pass nothing. Create the device.
 
   OE_LOG(LOG_LEVEL_INFO, "Vulkan logical device created!");
 
@@ -399,55 +386,5 @@ bool vulkan_device_create(backend_context *context) {
                    context->device.present_queue_index, 0,
                    &context->device.present_queue);
 
-  return true;
-}
-
-bool vulkan_device_create_logical_device(backend_context *context) {
-  const float priority = 1.0f;
-  std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-  std::vector<uint32_t> queue_family_indices = {
-      static_cast<uint32_t>(context->device.graphics_queue_index),
-      static_cast<uint32_t>(context->device.present_queue_index),
-      static_cast<uint32_t>(context->device.transfer_queue_index)};
-  // Create each queue
-  for (auto queue : queue_family_indices) {
-    VkDeviceQueueCreateInfo queue_create_info{};
-    queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue_create_info.queueFamilyIndex = queue;
-    queue_create_info.flags = 0;
-    queue_create_info.pNext = 0;
-    queue_create_info.queueCount = 1;
-    queue_create_info.pQueuePriorities = &priority;
-    queue_create_infos.push_back(queue_create_info);
-  }
-  VkDeviceCreateInfo device_create_info{};
-  device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  device_create_info.pQueueCreateInfos = queue_create_infos.data();
-  device_create_info.queueCreateInfoCount = queue_create_infos.size();
-  device_create_info.pEnabledFeatures = &context->device.features;
-  const char *extension_names = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
-  device_create_info.ppEnabledExtensionNames = &extension_names;
-
-  // Add validation layers if in debug mode
-#ifndef NDEBUG
-  uint32_t layerCount;
-  vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-  OE_LOG(LOG_LEVEL_DEBUG, "Available layer count: %d", layerCount);
-  std::vector<VkLayerProperties> availableLayerProperties(layerCount);
-  vkEnumerateInstanceLayerProperties(&layerCount,
-                                     availableLayerProperties.data());
-
-  std::vector<const char *> availableLayers(layerCount);
-  for (auto var : availableLayerProperties) {
-    availableLayers.push_back(var.layerName);
-  }
-  device_create_info.enabledLayerCount = 0;
-  device_create_info.ppEnabledLayerNames = 0;
-#endif
-
-  VK_CHECK(vkCreateDevice(context->device.physical_device, &device_create_info,
-                          nullptr, &context->device.logical_device));
-
-  OE_LOG(LOG_LEVEL_INFO, "Created logical device!");
   return true;
 }

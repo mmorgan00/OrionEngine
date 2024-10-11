@@ -5,16 +5,18 @@
 #include <algorithm>  // Necessary for std::clamp
 #include <limits>     // Necessary for std::numeric_limits
 #include <vector>
+#include <vulkan/vulkan_enums.hpp>
+#include <vulkan/vulkan_handles.hpp>
 
 #include "engine/logger.h"
 #include "engine/renderer_types.inl"
 #include "engine/vulkan/vulkan_image.h"
 
-VkSurfaceFormatKHR swapchain_select_surface_format(
-    const std::vector<VkSurfaceFormatKHR> available_formats) {
+vk::SurfaceFormatKHR swapchain_select_surface_format(
+    const std::vector<vk::SurfaceFormatKHR> available_formats) {
   for (const auto &format : available_formats) {
-    if (format.format == VK_FORMAT_B8G8R8A8_SRGB &&
-        format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+    if (format.format == vk::Format::eB8G8R8A8Srgb &&
+        format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
       return format;
     }
   }
@@ -22,21 +24,21 @@ VkSurfaceFormatKHR swapchain_select_surface_format(
   return available_formats[0];
 }
 
-VkPresentModeKHR swapchain_select_present_mode(
-    uint32_t present_mode_count, VkPresentModeKHR *available_present_modes) {
+vk::PresentModeKHR swapchain_select_present_mode(
+    uint32_t present_mode_count, vk::PresentModeKHR *available_present_modes) {
   for (int i = 0; i < present_mode_count; i++) {
-    if (available_present_modes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
+    if (available_present_modes[i] == vk::PresentModeKHR::eMailbox) {
       OE_LOG(LOG_LEVEL_INFO, "Found mailbox present mode, selecting...");
       return available_present_modes[i];
     }
   }
   // fallback
   OE_LOG(LOG_LEVEL_INFO, "Mailbox present mode not found. Defaulting to FIFO");
-  return VK_PRESENT_MODE_FIFO_KHR;
+  return vk::PresentModeKHR::eFifo;
 }
 
-VkExtent2D swapchain_select_extent(
-    GLFWwindow *window, const VkSurfaceCapabilitiesKHR capabilities) {
+vk::Extent2D swapchain_select_extent(
+    GLFWwindow *window, const vk::SurfaceCapabilitiesKHR capabilities) {
   if (capabilities.currentExtent.width !=
       std::numeric_limits<uint32_t>::max()) {
     return capabilities.currentExtent;
@@ -44,17 +46,17 @@ VkExtent2D swapchain_select_extent(
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
 
-    VkExtent2D actualExtent = {static_cast<uint32_t>(width),
-                               static_cast<uint32_t>(height)};
+    vk::Extent2D actual_extent = {static_cast<uint32_t>(width),
+                                  static_cast<uint32_t>(height)};
 
-    actualExtent.width =
-        std::clamp(actualExtent.width, capabilities.minImageExtent.width,
+    actual_extent.width =
+        std::clamp(actual_extent.width, capabilities.minImageExtent.width,
                    capabilities.maxImageExtent.width);
-    actualExtent.height =
-        std::clamp(actualExtent.height, capabilities.minImageExtent.height,
+    actual_extent.height =
+        std::clamp(actual_extent.height, capabilities.minImageExtent.height,
                    capabilities.maxImageExtent.height);
 
-    return actualExtent;
+    return actual_extent;
   }
 }
 
@@ -62,13 +64,13 @@ void create(backend_context *context) {
   // Going to reference this a lot, so for convenience sake
   auto sc_s = context->device.swapchain_support;
 
-  VkSurfaceFormatKHR surface_format =
+  vk::SurfaceFormatKHR surface_format =
       swapchain_select_surface_format(sc_s.formats);
 
-  VkPresentModeKHR present_mode =
+  vk::PresentModeKHR present_mode =
       swapchain_select_present_mode(sc_s.format_count, sc_s.present_modes);
 
-  VkExtent2D extent =
+  vk::Extent2D extent =
       swapchain_select_extent(context->window, sc_s.capabilities);
 
   uint32_t image_count = sc_s.capabilities.minImageCount + 1;
@@ -81,40 +83,28 @@ void create(backend_context *context) {
 
   // Everyone's favorite thing to do in vulkan - fill out a struct for
   // instantiation
-  VkSwapchainCreateInfoKHR create_info = {};
-  create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  create_info.surface = context->surface;
-  create_info.minImageCount = image_count;
-  create_info.imageFormat = surface_format.format;
-  create_info.imageColorSpace = surface_format.colorSpace;
-  create_info.imageExtent = extent;
-  create_info.imageArrayLayers = 1;
-  // TODO: WHEN WE GET TO DEFFERED RENDERING, REVIST THIS
-  create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+  std::array<uint32_t, 2> queue_family_indices = {
+      static_cast<uint32_t>(context->device.graphics_queue_index),
+      static_cast<uint32_t>(context->device.present_queue_index)};
+  vk::SwapchainCreateInfoKHR sc_ci{
+      .flags = {},
+      .minImageCount = 2,
+      .imageFormat = vk::Format::eB8G8R8A8Srgb,
+      .imageColorSpace = vk::ColorSpaceKHR::eSrgbNonlinear,
+      .imageExtent = extent,
+      .imageArrayLayers = 1,
+      .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+      .imageSharingMode = vk::SharingMode::eConcurrent,
+      .queueFamilyIndexCount = queue_family_indices.size(),
+      .pQueueFamilyIndices = queue_family_indices.data(),
+      .preTransform = sc_s.capabilities.currentTransform,
+      .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
+      .presentMode = vk::PresentModeKHR::eFifo,
+      .clipped = VK_TRUE,
+      .oldSwapchain = nullptr};
 
-  if (context->device.graphics_queue_index !=
-      context->device.present_queue_index) {
-    create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-    create_info.queueFamilyIndexCount = 2;
-    uint32_t queue_family_indices[] = {
-        static_cast<uint32_t>(context->device.graphics_queue_index),
-        static_cast<uint32_t>(context->device.present_queue_index)};
-    create_info.pQueueFamilyIndices = queue_family_indices;
-  } else {
-    create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    create_info.queueFamilyIndexCount = 0;
-    create_info.pQueueFamilyIndices = nullptr;
-  }
-
-  create_info.preTransform = sc_s.capabilities.currentTransform;
-  create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-  create_info.presentMode = present_mode;
-  create_info.clipped = VK_TRUE;  // Clips pixels behind other windows.
-  create_info.oldSwapchain =
-      VK_NULL_HANDLE;  // Only a 'recreate swapchain' type of thing
-
-  VK_CHECK(vkCreateSwapchainKHR(context->device.logical_device, &create_info,
-                                nullptr, &context->swapchain.handle));
+  context->swapchain.handle =
+      context->device.logical_device.createSwapchainKHR(sc_ci);
 
   // Save handles to the swap chain images
   vkGetSwapchainImagesKHR(context->device.logical_device,

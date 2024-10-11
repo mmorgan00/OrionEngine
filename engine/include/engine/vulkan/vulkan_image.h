@@ -12,15 +12,15 @@ void vulkan_image_copy_from_buffer(backend_context* context,
 void vulkan_image_create(backend_context* context, uint32_t height,
                          uint32_t width, vulkan_image* out_image);
 
-void vulkan_image_create_view(backend_context* context, VkFormat format,
-                              VkImage* image, VkImageView* out_image_view);
+void vulkan_image_create_view(backend_context* context, vk::Format format,
+                              vk::Image* image, vk::ImageView* out_image_view);
 
 void vulkan_image_create_sampler(backend_context* context, vulkan_image* image,
-                                 VkSampler* out_sampler);
+                                 vk::Sampler* out_sampler);
 
 void vulkan_image_transition_layout(backend_context* context,
                                     vulkan_image* image, VkFormat format,
-                                    VkImageLayout oldLayout,
-                                    VkImageLayout newLayout);
+                                    vk::ImageLayout oldLayout,
+                                    vk::ImageLayout newLayout);
 
 #endif
