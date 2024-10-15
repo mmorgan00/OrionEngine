@@ -113,11 +113,11 @@ typedef struct vulkan_renderpass {
 typedef struct vulkan_swapchain {
   vk::Format image_format;
   vk::SwapchainKHR handle;
-  VkExtent2D extent;
+  vk::Extent2D extent;
   uint32_t image_count;
-  std::vector<VkImage> images;
-  std::vector<VkImageView> views;  // images not accessed directly in Vulkan
-  std::vector<VkFramebuffer> framebuffers;
+  std::vector<vk::Image> images;
+  std::vector<vk::ImageView> views;  // images not accessed directly in Vulkan
+  std::vector<vk::Framebuffer> framebuffers;
 } vulkan_swapchain;
 
 typedef struct vulkan_pipeline {

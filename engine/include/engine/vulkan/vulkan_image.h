@@ -19,7 +19,7 @@ void vulkan_image_create_sampler(backend_context* context, vulkan_image* image,
                                  vk::Sampler* out_sampler);
 
 void vulkan_image_transition_layout(backend_context* context,
-                                    vulkan_image* image, VkFormat format,
+                                    vulkan_image* image, vk::Format format,
                                     vk::ImageLayout oldLayout,
                                     vk::ImageLayout newLayout);
 

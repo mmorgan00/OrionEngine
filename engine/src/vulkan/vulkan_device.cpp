@@ -66,14 +66,12 @@ bool physical_device_meets_requirements(
     }
   }
 
-  uint32_t queue_family_count = 0;
-  vk::QueueFamilyProperties queue_families[32];
-  device.getQueueFamilyProperties(&queue_family_count, queue_families);
+  auto queue_families = device.getQueueFamilyProperties();
 
   // Look at each queue and see what queues it supports
   OE_LOG(LOG_LEVEL_INFO, "Graphics | Present | Compute | Transfer | Name");
   short min_transfer_score = 255;
-  for (uint32_t i = 0; i < queue_family_count; ++i) {
+  for (uint32_t i = 0; i < queue_families.size(); ++i) {
     short current_transfer_score = 0;
 
     // Graphics queue?

@@ -64,12 +64,12 @@ void renderer_create_texture() {
 
   vulkan_image_create(&context, height, width, &context.default_texture.image);
   vulkan_image_transition_layout(
-      &context, &context.default_texture.image, VK_FORMAT_R8G8B8A8_SRGB,
+      &context, &context.default_texture.image, vk::Format::eR8G8B8A8Srgb,
       vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
   vulkan_image_copy_from_buffer(&context, staging,
                                 context.default_texture.image, height, width);
   vulkan_image_transition_layout(&context, &context.default_texture.image,
-                                 VK_FORMAT_R8G8B8A8_SRGB,
+                                 vk::Format::eB8G8R8A8Srgb,
                                  vk::ImageLayout::eTransferDstOptimal,
                                  vk::ImageLayout::eShaderReadOnlyOptimal);
 
@@ -414,20 +414,18 @@ bool check_validation_layer_support();
 void generate_framebuffers(backend_context *context) {
   context->swapchain.framebuffers.resize(context->swapchain.images.size());
   for (size_t i = 0; i < context->swapchain.images.size(); i++) {
-    VkImageView attachments[] = {context->swapchain.views[i]};
+    std::array<vk::ImageView, 1> attachments = {context->swapchain.views[i]};
 
-    VkFramebufferCreateInfo framebuffer_create_info{};
-    framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebuffer_create_info.renderPass = context->main_renderpass.handle;
-    framebuffer_create_info.attachmentCount = 1;
-    framebuffer_create_info.pAttachments = attachments;
-    framebuffer_create_info.width = context->swapchain.extent.width;
-    framebuffer_create_info.height = context->swapchain.extent.height;
-    framebuffer_create_info.layers = 1;
-
-    VK_CHECK(vkCreateFramebuffer(context->device.logical_device,
-                                 &framebuffer_create_info, nullptr,
-                                 &context->swapchain.framebuffers[i]));
+    vk::FramebufferCreateInfo framebuffer_ci{
+        .renderPass = context->main_renderpass.handle,
+        .attachmentCount = 1,
+        .pAttachments = attachments.data(),
+        .width = context->swapchain.extent.width,
+        .height = context->swapchain.extent.height,
+        .layers = 1,
+    };
+    context->swapchain.framebuffers[i] =
+        context->device.logical_device.createFramebuffer(framebuffer_ci);
   }
   OE_LOG(LOG_LEVEL_INFO, "Framebuffers generated");
   return;

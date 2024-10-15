@@ -88,6 +88,7 @@ void create(backend_context *context) {
       static_cast<uint32_t>(context->device.present_queue_index)};
   vk::SwapchainCreateInfoKHR sc_ci{
       .flags = {},
+      .surface = context->surface,
       .minImageCount = 2,
       .imageFormat = vk::Format::eB8G8R8A8Srgb,
       .imageColorSpace = vk::ColorSpaceKHR::eSrgbNonlinear,
@@ -106,14 +107,14 @@ void create(backend_context *context) {
   context->swapchain.handle =
       context->device.logical_device.createSwapchainKHR(sc_ci);
 
-  // Save handles to the swap chain images
-  vkGetSwapchainImagesKHR(context->device.logical_device,
-                          context->swapchain.handle, &image_count, nullptr);
-  context->swapchain.images.resize(image_count);
-  context->swapchain.image_count = image_count;
-  vkGetSwapchainImagesKHR(context->device.logical_device,
-                          context->swapchain.handle, &image_count,
-                          context->swapchain.images.data());
+  context->swapchain.images =
+      context->device.logical_device.getSwapchainImagesKHR(
+          context->swapchain.handle);
+
+  context->swapchain.image_count = context->swapchain.images.size();
+  // vkGetSwapchainImagesKHR(context->device.logical_device,
+  //                         context->swapchain.handle, &image_count,
+  //                         context->swapchain.images.data());
 
   OE_LOG(LOG_LEVEL_DEBUG, "Retrieved swapchain images");
   // We'll want these later
