@@ -3,8 +3,6 @@
 
 #define VULKAN_HPP_NO_CONSTRUCTORS
 #include <GLFW/glfw3.h>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 #include <array>
 #include <glm/glm.hpp>
@@ -27,33 +25,40 @@ typedef struct Vertex {
   glm::vec3 color;
   glm::vec2 tex_coord;
 
-  static VkVertexInputBindingDescription get_binding_description() {
-    VkVertexInputBindingDescription binding_description{};
-    binding_description.binding = 0;
-    binding_description.stride = sizeof(Vertex);
-    binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    return binding_description;
-  }
-  static std::array<VkVertexInputAttributeDescription, 3>
+  static std::array<vk::VertexInputBindingDescription, 1>
+  get_binding_description() {
+    vk::VertexInputBindingDescription binding_desc{
+        .binding = 0,
+        .stride = sizeof(Vertex),
+        .inputRate = vk::VertexInputRate::eVertex,
+    };
+    std::array<vk::VertexInputBindingDescription, 1> binding = {{binding_desc}};
+    return binding;
+  };
+  static std::array<vk::VertexInputAttributeDescription, 3>
   get_attribute_descriptions() {
-    std::array<VkVertexInputAttributeDescription, 3> attribute_descriptions{};
-    attribute_descriptions[0].binding = 0;
-    attribute_descriptions[0].location = 0;
-    attribute_descriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-    attribute_descriptions[0].offset = offsetof(Vertex, pos);
+    vk::VertexInputAttributeDescription vert_desc = {
+        .location = 0,
+        .binding = 0,
+        .format = vk::Format::eR32G32Sfloat,
+        .offset = offsetof(Vertex, pos)};
 
-    // TODO: Change to tex coords
-    // color
-    attribute_descriptions[1].binding = 0;
-    attribute_descriptions[1].location = 1;
-    attribute_descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attribute_descriptions[1].offset = offsetof(Vertex, color);
+    vk::VertexInputAttributeDescription color_desc = {
+        .location = 1,
+        .binding = 0,
+        .format = vk::Format::eR32G32Sfloat,
+        .offset = offsetof(Vertex, color)};
 
-    attribute_descriptions[2].binding = 0;
-    attribute_descriptions[2].location = 2;
-    attribute_descriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attribute_descriptions[2].offset = offsetof(Vertex, tex_coord);
+    vk::VertexInputAttributeDescription tex_desc = {
+        .location = 2,
+        .binding = 0,
+        .format = vk::Format::eR32G32Sfloat,
+        .offset = offsetof(Vertex, tex_coord)};
 
+    std::array<vk::VertexInputAttributeDescription, 3> attribute_descriptions{
+        vert_desc, color_desc, tex_desc
+
+    };
     return attribute_descriptions;
   }
 } Vertex;
@@ -93,9 +98,9 @@ typedef struct vulkan_device {
   int present_queue_index;
   int transfer_queue_index;
 
-  VkQueue graphics_queue;
-  VkQueue present_queue;
-  VkQueue transfer_queue;
+  vk::Queue graphics_queue;
+  vk::Queue present_queue;
+  vk::Queue transfer_queue;
 
   VkCommandPool graphics_command_pool;
 
@@ -121,22 +126,22 @@ typedef struct vulkan_swapchain {
 } vulkan_swapchain;
 
 typedef struct vulkan_pipeline {
-  VkPipeline handle;
-  VkPipelineLayout layout;
-  VkDescriptorSetLayout descriptor_set_layout{};
+  vk::Pipeline handle;
+  vk::PipelineLayout layout;
+  vk::DescriptorSetLayout descriptor_set_layout{};
 } vulkan_pipeline;
 
 typedef struct vulkan_shader_stage {
-  VkShaderModuleCreateInfo create_info;
-  VkShaderModule handle;
-  VkPipelineShaderStageCreateInfo shader_stage_create_info;
+  vk::ShaderModuleCreateInfo create_info;
+  vk::ShaderModule handle;
+  vk::PipelineShaderStageCreateInfo shader_stage_create_info;
 } vulkan_shader_stage;
 
 #define OBJECT_SHADER_STAGE_COUNT 2  // vertex, fragment for now
 
 typedef struct vulkan_buffer {
-  VkBuffer handle;
-  VkDeviceMemory memory;
+  vk::Buffer handle;
+  vk::DeviceMemory memory;
 } vulkan_buffer;
 
 typedef struct vulkan_object_shader {
@@ -154,33 +159,33 @@ typedef struct backend_context {
   vk::UniqueInstance instance;
   vulkan_device device;
   GLFWwindow* window;
-  VkSurfaceKHR surface;
+  vk::SurfaceKHR surface;
   vulkan_pipeline pipeline;
   vulkan_renderpass main_renderpass;
-  VkCommandPool command_pool;
-  std::vector<VkCommandBuffer> command_buffer;
+  vk::CommandPool command_pool;
+  std::vector<vk::CommandBuffer> command_buffer;
   vulkan_buffer vert_buff;
   vulkan_buffer index_buff;
 #ifndef NDEBUG
   vk::DebugUtilsMessengerEXT debug_messenger;
 #endif
   vulkan_swapchain swapchain;
-  std::vector<VkSemaphore> image_available_semaphore;
-  std::vector<VkSemaphore> render_finished_semaphore;
-  std::vector<VkFence> in_flight_fence;
+  std::vector<vk::Semaphore> image_available_semaphore;
+  std::vector<vk::Semaphore> render_finished_semaphore;
+  std::vector<vk::Fence> in_flight_fence;
   uint32_t current_frame;
   vulkan_object_shader object_shader;
-  VkDescriptorPool descriptor_pool;
-  std::vector<VkDescriptorSet> descriptor_sets;
+  vk::DescriptorPool descriptor_pool;
+  std::vector<vk::DescriptorSet> descriptor_sets;
   std::vector<vulkan_buffer> uniform_buffers;
   std::vector<void*> uniform_buffer_memory;
   vulkan_texture default_texture;
 } backend_context;
 
-#define VK_CHECK(expr)               \
-  do {                               \
-    VkResult result = (expr);        \
-    OE_ASSERT(result == VK_SUCCESS); \
+#define VK_CHECK(expr)                         \
+  do {                                         \
+    vk::Result result = (expr);                \
+    OE_ASSERT(result == vk::Result::eSuccess); \
   } while (0)
 
 #endif

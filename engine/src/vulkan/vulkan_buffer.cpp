@@ -1,17 +1,14 @@
 #include "engine/vulkan/vulkan_buffer.h"
 
-#include <vulkan/vulkan_core.h>
-
 #include <cstring>
 #include <stdexcept>
 
 #include "engine/vulkan/vulkan_command_buffer.h"
 
 uint32_t find_memory_type(backend_context* context, uint32_t type_filter,
-                          VkMemoryPropertyFlags properties) {
-  VkPhysicalDeviceMemoryProperties mem_properties;
-  vkGetPhysicalDeviceMemoryProperties(context->device.physical_device,
-                                      &mem_properties);
+                          vk::MemoryPropertyFlags properties) {
+  vk::PhysicalDeviceMemoryProperties mem_properties =
+      context->device.physical_device.getMemoryProperties();
 
   for (uint32_t i = 0; i < mem_properties.memoryTypeCount; i++) {
     if (type_filter & (1 << i) && (mem_properties.memoryTypes[i].propertyFlags &
@@ -24,9 +21,8 @@ uint32_t find_memory_type(backend_context* context, uint32_t type_filter,
 }
 
 void vulkan_buffer_destroy(backend_context* context, vulkan_buffer* buffer) {
-  vkDestroyBuffer(context->device.logical_device, buffer->handle, nullptr);
-
-  vkFreeMemory(context->device.logical_device, buffer->memory, nullptr);
+  context->device.logical_device.destroyBuffer(buffer->handle, nullptr);
+  context->device.logical_device.freeMemory(buffer->memory);
 }
 
 void vulkan_buffer_load_data(backend_context* context, vulkan_buffer* buffer,
@@ -39,7 +35,7 @@ void vulkan_buffer_load_data(backend_context* context, vulkan_buffer* buffer,
   vkUnmapMemory(context->device.logical_device, buffer->memory);
 }
 void vulkan_buffer_copy(backend_context* context, vulkan_buffer* source,
-                        vulkan_buffer* target, VkDeviceSize size) {
+                        vulkan_buffer* target, vk::DeviceSize size) {
   VkCommandBuffer command_buffer =
       vulkan_command_buffer_begin_single_time_commands(context);
   // // Perform the copy
@@ -55,31 +51,30 @@ void vulkan_buffer_copy(backend_context* context, vulkan_buffer* source,
 
   return;
 }
-void vulkan_buffer_create(backend_context* context, VkBufferUsageFlags usage,
-                          VkMemoryPropertyFlags properties, VkDeviceSize size,
-                          vulkan_buffer* out_buffer) {
-  VkBufferCreateInfo buffer_info{};
-  buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  buffer_info.size = size;
-  buffer_info.usage = usage;
-  buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-  VK_CHECK(vkCreateBuffer(context->device.logical_device, &buffer_info, nullptr,
-                          &out_buffer->handle));
+void vulkan_buffer_create(backend_context* context, vk::BufferUsageFlags usage,
+                          vk::MemoryPropertyFlags properties,
+                          vk::DeviceSize size, vulkan_buffer* out_buffer) {
+  vk::BufferCreateInfo buffer_ci{
+      .size = size,
+      .usage = usage,
+      .sharingMode = vk::SharingMode::eExclusive,
+  };
+  out_buffer->handle = context->device.logical_device.createBuffer(buffer_ci);
 
   // Memory requirements
-  VkMemoryRequirements mem_reqs{};
-  vkGetBufferMemoryRequirements(context->device.logical_device,
-                                out_buffer->handle, &mem_reqs);
-  VkMemoryAllocateInfo alloc_info{};
-  alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  alloc_info.allocationSize = mem_reqs.size;
-  alloc_info.memoryTypeIndex =
+  vk::MemoryRequirements mem_reqs =
+      context->device.logical_device.getBufferMemoryRequirements(
+          out_buffer->handle);
+
+  auto mem_type_index =
       find_memory_type(context, mem_reqs.memoryTypeBits, properties);
+  vk::MemoryAllocateInfo alloc_info{
+      .allocationSize = mem_reqs.size,
+      .memoryTypeIndex = mem_type_index,
+  };
+  out_buffer->memory =
+      context->device.logical_device.allocateMemory(alloc_info);
 
-  VK_CHECK(vkAllocateMemory(context->device.logical_device, &alloc_info,
-                            nullptr, &out_buffer->memory));
-
-  vkBindBufferMemory(context->device.logical_device, out_buffer->handle,
-                     out_buffer->memory, 0);
+  context->device.logical_device.bindBufferMemory(out_buffer->handle,
+                                                  out_buffer->memory, 0);
 }

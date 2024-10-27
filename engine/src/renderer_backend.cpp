@@ -55,9 +55,9 @@ void renderer_create_texture() {
       platform_open_image("textures/texture.jpg", &height, &width, &channels);
 
   vulkan_buffer staging;
-  vulkan_buffer_create(&context, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+  vulkan_buffer_create(&context, vk::BufferUsageFlagBits::eTransferSrc,
+                       vk::MemoryPropertyFlagBits::eHostVisible |
+                           vk::MemoryPropertyFlagBits::eHostCoherent,
                        width * height * 4, &staging);
 
   vulkan_buffer_load_data(&context, &staging, 0, 0, width * height * 4, pixels);
@@ -79,76 +79,77 @@ void renderer_create_texture() {
                            &context.default_texture.image.handle,
                            &context.default_texture.image.view);
 
-  VkSampler default_tex_sampler;
   vulkan_image_create_sampler(&context, &context.default_texture.image,
                               &context.default_texture.sampler);
 }
 
 void create_descriptor_pool() {
-  std::array<VkDescriptorPoolSize, 2> pool_size{};
-  pool_size[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_size[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-  pool_size[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  pool_size[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+  vk::DescriptorPoolSize buffer_ps{
+      .type = vk::DescriptorType::eUniformBuffer,
+      .descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+  };
+  vk::DescriptorPoolSize sampler_ps{
+      .type = vk::DescriptorType::eCombinedImageSampler,
+      .descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+  };
+  std::array<vk::DescriptorPoolSize, 2> pool_size = {buffer_ps, sampler_ps};
 
-  VkDescriptorPoolCreateInfo pool_info{};
-  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  pool_info.poolSizeCount = static_cast<uint32_t>(pool_size.size());
-  pool_info.pPoolSizes = pool_size.data();
-  pool_info.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+  vk::DescriptorPoolCreateInfo pool_info{
+      .maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+      .poolSizeCount = static_cast<uint32_t>(pool_size.size()),
+      .pPoolSizes = pool_size.data(),
+  };
 
-  VK_CHECK(vkCreateDescriptorPool(context.device.logical_device, &pool_info,
-                                  nullptr, &context.descriptor_pool));
+  context.descriptor_pool =
+      context.device.logical_device.createDescriptorPool(pool_info);
 }
 
 void create_descriptor_set() {
-  std::vector<VkDescriptorSetLayout> layouts(
+  std::vector<vk::DescriptorSetLayout> layouts(
       MAX_FRAMES_IN_FLIGHT, context.pipeline.descriptor_set_layout);
-  VkDescriptorSetAllocateInfo alloc_info{};
-  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-  alloc_info.descriptorPool = context.descriptor_pool;
-  alloc_info.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-  alloc_info.pSetLayouts = layouts.data();
 
+  vk::DescriptorSetAllocateInfo alloc_info{
+      .descriptorPool = context.descriptor_pool,
+      .descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+      .pSetLayouts = layouts.data()
+
+  };
   context.descriptor_sets.resize(MAX_FRAMES_IN_FLIGHT);
-
-  VK_CHECK(vkAllocateDescriptorSets(context.device.logical_device, &alloc_info,
-                                    context.descriptor_sets.data()));
+  context.descriptor_sets =
+      context.device.logical_device.allocateDescriptorSets(alloc_info);
 
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-    VkDescriptorBufferInfo buffer_info{};
-    buffer_info.buffer = context.uniform_buffers[i].handle;
-    buffer_info.offset = 0;
-    buffer_info.range = sizeof(UniformBufferObject);
+    vk::DescriptorBufferInfo buffer_info{
+        .buffer = context.uniform_buffers[i].handle,
+        .offset = 0,
+        .range = sizeof(UniformBufferObject)};
 
-    VkDescriptorImageInfo image_info{};
-    image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    image_info.imageView = context.default_texture.image.view;
-    image_info.sampler = context.default_texture.sampler;
+    vk::DescriptorImageInfo image_info{
+        .sampler = context.default_texture.sampler,
+        .imageView = context.default_texture.image.view,
+        .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+    };
 
-    std::array<VkWriteDescriptorSet, 2> descriptor_write{};
-    descriptor_write[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptor_write[0].dstSet = context.descriptor_sets[i];
-    descriptor_write[0].dstBinding = 0;
-    descriptor_write[0].dstArrayElement = 0;
-    descriptor_write[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptor_write[0].descriptorCount = 1;
-    descriptor_write[0].pBufferInfo = &buffer_info;
-    descriptor_write[0].pImageInfo = nullptr;
-    descriptor_write[0].pTexelBufferView = nullptr;
+    vk::WriteDescriptorSet uniform_buffer_descriptor_write{
+        .dstSet = context.descriptor_sets[i],
+        .dstBinding = 0,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = vk::DescriptorType::eUniformBuffer,
+        .pImageInfo = nullptr,
+        .pBufferInfo = &buffer_info,
+        .pTexelBufferView = nullptr};
+    vk::WriteDescriptorSet texture_descriptor_write{
+        .dstSet = context.descriptor_sets[i],
+        .dstBinding = 1,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+        .pImageInfo = &image_info};
+    std::array<vk::WriteDescriptorSet, 2> descriptor_write{
+        uniform_buffer_descriptor_write, texture_descriptor_write};
 
-    descriptor_write[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptor_write[1].dstSet = context.descriptor_sets[i];
-    descriptor_write[1].dstBinding = 1;
-    descriptor_write[1].dstArrayElement = 0;
-    descriptor_write[1].descriptorType =
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptor_write[1].descriptorCount = 1;
-    descriptor_write[1].pImageInfo = &image_info;
-
-    vkUpdateDescriptorSets(context.device.logical_device,
-                           descriptor_write.size(), descriptor_write.data(), 0,
-                           nullptr);
+    context.device.logical_device.updateDescriptorSets(descriptor_write, 0);
   }
 }
 
@@ -157,34 +158,36 @@ void create_buffers() {
   // system
   // Vertices
   vulkan_buffer staging;
-  vulkan_buffer_create(&context, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+  vulkan_buffer_create(&context, vk::BufferUsageFlagBits::eTransferSrc,
+                       vk::MemoryPropertyFlagBits::eHostVisible |
+                           vk::MemoryPropertyFlagBits::eHostCoherent,
                        sizeof(vertices[0]) * vertices.size(), &staging);
 
   vulkan_buffer_load_data(&context, &staging, 0, 0,
                           sizeof(vertices[0]) * vertices.size(),
                           vertices.data());
-  vulkan_buffer_create(
-      &context,
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-      sizeof(vertices[0]) * vertices.size(), &context.vert_buff);
+  vulkan_buffer_create(&context,
+                       vk::BufferUsageFlagBits::eTransferDst |
+                           vk::BufferUsageFlagBits::eVertexBuffer,
+                       vk::MemoryPropertyFlagBits::eDeviceLocal,
+                       sizeof(vertices[0]) * vertices.size(),
+                       &context.vert_buff);
 
   vulkan_buffer_copy(&context, &staging, &context.vert_buff,
                      sizeof(vertices[0]) * vertices.size());
 
   // Indices
   vulkan_buffer index_staging;
-  vulkan_buffer_create(&context, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+  vulkan_buffer_create(&context, vk::BufferUsageFlagBits::eTransferSrc,
+                       vk::MemoryPropertyFlagBits::eHostVisible |
+                           vk::MemoryPropertyFlagBits::eHostCoherent,
                        sizeof(indices[0]) * indices.size(), &index_staging);
-  vulkan_buffer_create(
-      &context,
-      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, sizeof(indices[0]) * indices.size(),
-      &context.index_buff);
+  vulkan_buffer_create(&context,
+                       vk::BufferUsageFlagBits::eTransferDst |
+                           vk::BufferUsageFlagBits::eIndexBuffer,
+                       vk::MemoryPropertyFlagBits::eDeviceLocal,
+                       sizeof(indices[0]) * indices.size(),
+                       &context.index_buff);
 
   vulkan_buffer_load_data(&context, &index_staging, 0, 0,
                           sizeof(indices[0]) * indices.size(), indices.data());
@@ -197,9 +200,9 @@ void create_buffers() {
   context.uniform_buffer_memory.resize(MAX_FRAMES_IN_FLIGHT);
 
   for (size_t i = 0; i <= MAX_FRAMES_IN_FLIGHT; i++) {
-    vulkan_buffer_create(&context, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+    vulkan_buffer_create(&context, vk::BufferUsageFlagBits::eUniformBuffer,
+                         vk::MemoryPropertyFlagBits::eHostVisible |
+                             vk::MemoryPropertyFlagBits::eHostCoherent,
                          sizeof(UniformBufferObject),
                          &context.uniform_buffers[i]);
     // Map the memory here since we will be updating this *constantly*
@@ -214,19 +217,17 @@ void create_sync_objects() {
   context.in_flight_fence.resize(MAX_FRAMES_IN_FLIGHT);
 
   for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-    VkSemaphoreCreateInfo sem_create_info{};
-    sem_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    vk::SemaphoreCreateInfo sem_create_info{};
 
-    VkFenceCreateInfo fence_create_info{};
-    fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    vk::FenceCreateInfo fence_create_info{
+        .flags = vk::FenceCreateFlagBits::eSignaled};
 
-    VK_CHECK(vkCreateSemaphore(context.device.logical_device, &sem_create_info,
-                               nullptr, &context.image_available_semaphore[i]));
-    VK_CHECK(vkCreateSemaphore(context.device.logical_device, &sem_create_info,
-                               nullptr, &context.render_finished_semaphore[i]));
-    VK_CHECK(vkCreateFence(context.device.logical_device, &fence_create_info,
-                           nullptr, &context.in_flight_fence[i]));
+    context.image_available_semaphore[i] =
+        context.device.logical_device.createSemaphore(sem_create_info);
+    context.render_finished_semaphore[i] =
+        context.device.logical_device.createSemaphore(sem_create_info);
+    context.in_flight_fence[i] =
+        context.device.logical_device.createFence(fence_create_info);
   }
   return;
 }
@@ -254,59 +255,59 @@ void update_ubo(uint32_t frame_index) {
   memcpy(context.uniform_buffer_memory[frame_index], &ubo, sizeof(ubo));
 }
 void renderer_backend_draw_frame() {
-  vkWaitForFences(context.device.logical_device, 1,
-                  &context.in_flight_fence[context.current_frame], VK_TRUE,
-                  UINT64_MAX);
-  vkResetFences(context.device.logical_device, 1,
-                &context.in_flight_fence[context.current_frame]);
+  vk::Device device = context.device.logical_device;
+  VK_CHECK(device.waitForFences(1,
+                                &context.in_flight_fence[context.current_frame],
+                                vk::True, UINT64_MAX));
+  VK_CHECK(
+      device.resetFences(1, &context.in_flight_fence[context.current_frame]));
+
   uint32_t image_index;
-  vkAcquireNextImageKHR(
-      context.device.logical_device, context.swapchain.handle, UINT64_MAX,
-      context.image_available_semaphore[context.current_frame], VK_NULL_HANDLE,
-      &image_index);
-  vkResetCommandBuffer(context.command_buffer[context.current_frame],
-                       0);  // nothing special with command buffer for now;
+  vk::ResultValue<uint32_t> result = device.acquireNextImageKHR(
+      context.swapchain.handle, UINT64_MAX,
+      context.image_available_semaphore[context.current_frame], VK_NULL_HANDLE);
+  if (result.result != vk::Result::eSuccess) {
+    OE_LOG(LOG_LEVEL_ERROR, "Failed to acquire next image!");
+    return;
+  }
+  context.command_buffer[context.current_frame].reset();
 
   update_ubo(context.current_frame);
   renderer_backend_draw_image(image_index);
   // time to submit commands now
-  VkSubmitInfo submit_info{};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-  VkSemaphore wait_semaphores[] = {
+  vk::Semaphore wait_semaphores[] = {
       context.image_available_semaphore[context.current_frame]};
-  VkPipelineStageFlags wait_stages[] = {
-      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-  submit_info.waitSemaphoreCount = 1;
-  submit_info.pWaitSemaphores = wait_semaphores;
-  submit_info.pWaitDstStageMask = wait_stages;
+  vk::PipelineStageFlags wait_stages[] = {
+      vk::PipelineStageFlagBits::eColorAttachmentOutput};
 
-  // Specify which command buffers we're submitting
-  submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &context.command_buffer[context.current_frame];
-
-  // Specify which semaphore to signal once done
-  VkSemaphore signal_semaphores = {
+  vk::Semaphore signal_semaphores = {
       context.render_finished_semaphore[context.current_frame]};
-  submit_info.signalSemaphoreCount = 1;
-  submit_info.pSignalSemaphores = &signal_semaphores;
 
-  VK_CHECK(vkQueueSubmit(context.device.graphics_queue, 1, &submit_info,
-                         context.in_flight_fence[context.current_frame]));
+  vk::SubmitInfo submit_info{
+      .waitSemaphoreCount = 1,
+      .pWaitSemaphores = wait_semaphores,
+      .pWaitDstStageMask = wait_stages,
+      .commandBufferCount = 1,
+      .pCommandBuffers = &context.command_buffer[context.current_frame],
+      .signalSemaphoreCount = 1,
+      .pSignalSemaphores = &signal_semaphores,
+  };
 
-  VkPresentInfoKHR present_info{};
-  present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  context.device.graphics_queue.submit(
+      submit_info, context.in_flight_fence[context.current_frame]);
 
-  present_info.waitSemaphoreCount = 1;
-  present_info.pWaitSemaphores = &signal_semaphores;
+  vk::SwapchainKHR swapchains[] = {context.swapchain.handle};
+  vk::PresentInfoKHR present_info{
+      .waitSemaphoreCount = 1,
+      .pWaitSemaphores = &signal_semaphores,
+      .swapchainCount = 1,
+      .pSwapchains = swapchains,
+      .pImageIndices = &image_index,
+      .pResults = nullptr,
+  };
 
-  VkSwapchainKHR swapchains[] = {context.swapchain.handle};
-  present_info.swapchainCount = 1;
-  present_info.pSwapchains = swapchains;
-  present_info.pImageIndices = &image_index;
-
-  present_info.pResults = nullptr;
-  vkQueuePresentKHR(context.device.present_queue, &present_info);
+  VK_CHECK(context.device.present_queue.presentKHR(present_info));
 
   // ONCE DONE WITH FRAME, INCREMENT HERE
   context.current_frame = (context.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -315,93 +316,92 @@ void renderer_backend_draw_frame() {
 // TODO: Rename this as 'draw image' is a slight misnomer as it does do that
 // however, it also primarily 'records commands' in vulkan terms
 void renderer_backend_draw_image(uint32_t image_index) {
+  auto cmd_buff =
+      context.command_buffer[context.current_frame];  // Shorthand because we
+                                                      // use this A TON
   // Start recording command buffer
-  VkCommandBufferBeginInfo begin_info{};
-  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  begin_info.flags = 0;
-  begin_info.pInheritanceInfo = nullptr;
-
-  VK_CHECK(vkBeginCommandBuffer(context.command_buffer[context.current_frame],
-                                &begin_info));
+  vk::CommandBufferBeginInfo begin_info{};
+  cmd_buff.begin(begin_info);
   // Begin renderpass
-  VkRenderPassBeginInfo render_pass_info{};
-  render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-  render_pass_info.renderPass = context.main_renderpass.handle;
-  render_pass_info.framebuffer = context.swapchain.framebuffers[image_index];
-  render_pass_info.renderArea.offset = {0, 0};
-  render_pass_info.renderArea.extent = context.swapchain.extent;
 
-  VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};  // clear to black
-  render_pass_info.clearValueCount = 1;
-  render_pass_info.pClearValues = &clear_color;
+  std::array<float, 4> color_constants_array = {0.0f, 0.0f, 0.0f,
+                                                1.0f};  // Black color
 
-  vkCmdBeginRenderPass(context.command_buffer[context.current_frame],
-                       &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+  vk::ClearColorValue clear_color_value{.float32 = color_constants_array};
 
+  vk::ClearValue clear_color{.color = clear_color_value};
+
+  vk::RenderPassBeginInfo render_pass_info{
+      .renderPass = context.main_renderpass.handle,
+      .framebuffer = context.swapchain.framebuffers[image_index],
+      .renderArea = {.offset = {.x = 0, .y = 0},
+                     .extent = context.swapchain.extent},
+      .clearValueCount = 1,
+      .pClearValues = &clear_color  // Use address-of operator for pointer
+  };
+  cmd_buff.beginRenderPass(render_pass_info, vk::SubpassContents::eInline);
   // Bind pipeline
-  vkCmdBindPipeline(context.command_buffer[context.current_frame],
-                    VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline.handle);
+  cmd_buff.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                        context.pipeline.handle);
 
-  VkBuffer vertex_buffers[] = {context.vert_buff.handle};
-  VkDeviceSize offsets[] = {0};
-  vkCmdBindVertexBuffers(context.command_buffer[context.current_frame], 0, 1,
-                         vertex_buffers, offsets);
+  vk::Buffer vertex_buffers[] = {context.vert_buff.handle};
+  vk::DeviceSize offsets[] = {0};
+  // context.command_buffer[context..current_frame]
+  cmd_buff.bindVertexBuffers(0, 1, vertex_buffers, offsets);
 
-  vkCmdBindIndexBuffer(context.command_buffer[context.current_frame],
-                       context.index_buff.handle, 0, VK_INDEX_TYPE_UINT16);
+  cmd_buff.bindIndexBuffer(context.index_buff.handle, 0,
+                           vk::IndexType::eUint16);
 
   // Create viewport and scissor since we specified dynamic earlier
-  VkViewport viewport{};
-  viewport.x = 0.0f;
-  viewport.y = 0.0f;
-  viewport.width = static_cast<float>(context.swapchain.extent.width);
-  viewport.height = static_cast<float>(context.swapchain.extent.height);
-  viewport.minDepth = 0.0f;
-  viewport.maxDepth = 1.0f;
-  vkCmdSetViewport(context.command_buffer[context.current_frame], 0, 1,
-                   &viewport);
+  vk::Viewport viewport{
+      .x = 0.0f,
+      .y = 0.0f,
+      .width = static_cast<float>(context.swapchain.extent.width),
+      .height = static_cast<float>(context.swapchain.extent.height),
+      .minDepth = 0.0f,
+      .maxDepth = 0.0f,
+  };
+  cmd_buff.setViewport(0, 1, &viewport);
 
-  VkRect2D scissor{};
-  scissor.offset = {0, 0};
-  scissor.extent = context.swapchain.extent;
-  vkCmdSetScissor(context.command_buffer[context.current_frame], 0, 1,
-                  &scissor);
+  vk::Rect2D scissor{.offset = {.x = 0, .y = 0},
+                     .extent = context.swapchain.extent};
+  cmd_buff.setScissor(0, 1, &scissor);
 
-  vkCmdBindDescriptorSets(
-      context.command_buffer[context.current_frame],
-      VK_PIPELINE_BIND_POINT_GRAPHICS, context.pipeline.layout, 0, 1,
+  cmd_buff.bindDescriptorSets(
+      vk::PipelineBindPoint::eGraphics, context.pipeline.layout, 0, 1,
       &context.descriptor_sets[context.current_frame], 0, nullptr);
 
   // WOOOOOOO
   // TODO: make this like, way more configurable
-  vkCmdDrawIndexed(context.command_buffer[context.current_frame],
-                   static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-  vkCmdEndRenderPass(context.command_buffer[context.current_frame]);
+  cmd_buff.drawIndexed(indices.size(), 1, 0, 0, 0);
 
-  VK_CHECK(vkEndCommandBuffer(context.command_buffer[context.current_frame]));
+  cmd_buff.endRenderPass();
+
+  // TODO: Check result
+  cmd_buff.end();
 }
 
 // --------- SETUP / TEARDOWN FUNCTIONS ---------------
 void create_command_pool() {
-  VkCommandPoolCreateInfo pool_create_info{};
-  pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-  pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-  pool_create_info.queueFamilyIndex = context.device.graphics_queue_index;
-  VK_CHECK(vkCreateCommandPool(context.device.logical_device, &pool_create_info,
-                               nullptr, &context.command_pool));
+  vk::CommandPoolCreateInfo pool_create_info{
+      .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+      .queueFamilyIndex =
+          static_cast<uint32_t>(context.device.graphics_queue_index),
+  };
+  context.command_pool = context.device.logical_device.createCommandPool(
+      pool_create_info, nullptr);
   return;
 }
 void create_command_buffer() {
   context.command_buffer.resize(MAX_FRAMES_IN_FLIGHT);
-  VkCommandBufferAllocateInfo cmdbuffer_alloc_info{};
-  cmdbuffer_alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  cmdbuffer_alloc_info.commandPool = context.command_pool;
-  cmdbuffer_alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  cmdbuffer_alloc_info.commandBufferCount = context.command_buffer.size();
+  vk::CommandBufferAllocateInfo cmdbuffer_alloc_info{
+      .commandPool = context.command_pool,
+      .level = vk::CommandBufferLevel::ePrimary,
+      .commandBufferCount =
+          static_cast<uint32_t>(context.command_buffer.size())};
 
-  VK_CHECK(vkAllocateCommandBuffers(context.device.logical_device,
-                                    &cmdbuffer_alloc_info,
-                                    context.command_buffer.data()));
+  context.command_buffer = context.device.logical_device.allocateCommandBuffers(
+      cmdbuffer_alloc_info);
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
@@ -555,8 +555,11 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   // Save a ref to the window from the plat platform state
   context.window = plat_state->window;
   // Now make the surface - we're using GLFW so just....use it
-  VK_CHECK(glfwCreateWindowSurface(context.instance.get(), context.window,
-                                   nullptr, &context.surface));
+  VkSurfaceKHR temp_surface;
+  glfwCreateWindowSurface(context.instance.get(), context.window, nullptr,
+                          &temp_surface);
+  context.surface = vk::SurfaceKHR(temp_surface);
+
   OE_LOG(LOG_LEVEL_DEBUG, "Vulkan surface created!");
   // Device, both physical and logical, queues included
   if (!vulkan_device_create(&context)) {
@@ -634,9 +637,9 @@ void renderer_backend_shutdown() {
                          context.render_finished_semaphore[i], nullptr);
     }
 
-    vkFreeCommandBuffers(context.device.logical_device, context.command_pool,
-                         context.command_buffer.size(),
-                         context.command_buffer.data());
+    // vkFreeCommandBuffers(context.device.logical_device, context.command_pool,
+    //                      context.command_buffer.size(),
+    //                      context.command_buffer.data());
 
     vkDestroyCommandPool(context.device.logical_device, context.command_pool,
                          nullptr);
