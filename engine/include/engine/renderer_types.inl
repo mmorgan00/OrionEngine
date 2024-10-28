@@ -188,4 +188,9 @@ typedef struct backend_context {
     OE_ASSERT(result == vk::Result::eSuccess); \
   } while (0)
 
+#define VK_OBJECT_CREATE_CHECK(object) \
+  do {                                 \
+    OE_ASSERT(object != nullptr);      \
+  } while (0)
+
 #endif

@@ -5,7 +5,6 @@
 #include <vulkan/vulkan_core.h>
 
 #include <vector>
-#include <vulkan/vulkan_structs.hpp>
 
 #include "engine/logger.h"
 
@@ -377,12 +376,10 @@ bool vulkan_device_create(backend_context *context) {
   OE_LOG(LOG_LEVEL_INFO, "Vulkan logical device created!");
 
   // Get the queues
-  vkGetDeviceQueue(context->device.logical_device,
-                   context->device.graphics_queue_index, 0,
-                   &context->device.graphics_queue);
-  vkGetDeviceQueue(context->device.logical_device,
-                   context->device.present_queue_index, 0,
-                   &context->device.present_queue);
+  context->device.graphics_queue = context->device.logical_device.getQueue(
+      context->device.graphics_queue_index, 0);
+  context->device.present_queue = context->device.logical_device.getQueue(
+      context->device.present_queue_index, 0);
 
   return true;
 }

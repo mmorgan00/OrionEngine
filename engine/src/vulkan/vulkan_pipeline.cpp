@@ -179,8 +179,15 @@ void vulkan_pipeline_create(backend_context* context,
       .basePipelineIndex = -1,
   };
 
-  out_pipeline->handle = context->device.logical_device.createGraphicsPipeline(
-      nullptr, pipeline_create_info);
+  vk::ResultValue<vk::Pipeline> result =
+      context->device.logical_device.createGraphicsPipeline(
+          nullptr, pipeline_create_info);
+  if (result.result != vk::Result::eSuccess) {
+    OE_LOG(LOG_LEVEL_ERROR, "Failed to create pipeline");
+    return;
+  }
+
+  out_pipeline->handle = result.value;
 
   OE_LOG(LOG_LEVEL_INFO, "Created graphics pipeline");
 

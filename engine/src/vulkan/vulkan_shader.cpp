@@ -20,7 +20,7 @@ void vulkan_shader_create(backend_context* context,
   std::string vert_code = asset_path + vert_path;
   std::string frag_code = asset_path + frag_path;
 
-  // Read in shaders code
+  // Vertex stage
   file_handle handle;
   if (!filesystem_open(vert_code.c_str(), FILE_MODE_READ, true, &handle)) {
     OE_LOG(LOG_LEVEL_ERROR, "Unable to read shader module: %s.",
@@ -35,24 +35,22 @@ void vulkan_shader_create(backend_context* context,
            vert_path.c_str());
   }
 
-  // OE_LOG(LOG_LEVEL_INFO, "Default shaders created");
+  vk::ShaderModuleCreateInfo vertex_stage_ci{
+      .codeSize = static_cast<size_t>(size), .pCode = (uint32_t*)file_buffer};
 
-  context->object_shader.stages[0].create_info.sType =
-      VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  context->object_shader.stages[0].create_info.codeSize = size;
-  context->object_shader.stages[0].create_info.pCode = (uint32_t*)file_buffer;
+  context->object_shader.stages[0].handle =
+      context->device.logical_device.createShaderModule(vertex_stage_ci,
+                                                        nullptr);
+  VK_OBJECT_CREATE_CHECK(context->object_shader.stages[0].handle);
 
-  VK_CHECK(vkCreateShaderModule(context->device.logical_device,
-                                &context->object_shader.stages[0].create_info,
-                                nullptr,
-                                &context->object_shader.stages[0].handle));
-
+  // Fragment stage
   std::vector<char> frag_shader_code =
       platform_read_file(asset_path + frag_path);
   if (!filesystem_open(frag_code.c_str(), FILE_MODE_READ, true, &handle)) {
     OE_LOG(LOG_LEVEL_ERROR, "Unable to read shader module: %s.",
            frag_code.c_str());
   }
+
   size = 0;
   file_buffer = 0;
   if (!filesystem_read_all_bytes(&handle, &file_buffer, &size)) {
@@ -60,15 +58,14 @@ void vulkan_shader_create(backend_context* context,
            frag_path.c_str());
   }
 
-  context->object_shader.stages[1].create_info.sType =
-      VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  context->object_shader.stages[1].create_info.codeSize = size;
-  context->object_shader.stages[1].create_info.pCode = (uint32_t*)file_buffer;
+  vk::ShaderModuleCreateInfo fragment_stage_ci{
+      .codeSize = static_cast<size_t>(size), .pCode = (uint32_t*)file_buffer};
 
-  VK_CHECK(vkCreateShaderModule(context->device.logical_device,
-                                &context->object_shader.stages[1].create_info,
-                                nullptr,
-                                &context->object_shader.stages[1].handle));
+  context->object_shader.stages[1].handle =
+      context->device.logical_device.createShaderModule(fragment_stage_ci,
+                                                        nullptr);
+
+  VK_OBJECT_CREATE_CHECK(context->object_shader.stages[1].handle);
 
   vulkan_pipeline_create(context, &context->main_renderpass,
                          context->object_shader.stages[0].handle,
@@ -78,8 +75,8 @@ void vulkan_shader_create(backend_context* context,
 
 void vulkan_shader_destroy(backend_context* context) {
   for (size_t i = 0; i < OBJECT_SHADER_STAGE_COUNT; i++) {
-    vkDestroyShaderModule(context->device.logical_device,
-                          context->object_shader.stages[i].handle, nullptr);
-    context->object_shader.stages[i].handle = 0;
+    context->device.logical_device.destroyShaderModule(
+        context->object_shader.stages[i].handle, nullptr);
+    context->object_shader.stages[i].handle = VK_NULL_HANDLE;
   }
 }
