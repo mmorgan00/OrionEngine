@@ -173,6 +173,9 @@ void vulkan_image_create(backend_context* context, uint32_t height,
           find_memory_type(context, mem_reqs.memoryTypeBits,
                            vk::MemoryPropertyFlagBits::eDeviceLocal),
   };
+
+  out_image->memory = context->device.logical_device.allocateMemory(alloc_info);
+
   context->device.logical_device.bindImageMemory(out_image->handle,
                                                  out_image->memory, 0);
 }

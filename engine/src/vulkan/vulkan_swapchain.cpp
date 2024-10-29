@@ -86,6 +86,15 @@ void create(backend_context *context) {
   std::array<uint32_t, 2> queue_family_indices = {
       static_cast<uint32_t>(context->device.graphics_queue_index),
       static_cast<uint32_t>(context->device.present_queue_index)};
+
+  // If graphics = present
+  vk::SharingMode sharing_mode;
+  if (queue_family_indices[0] != queue_family_indices[1]) {
+    sharing_mode = vk::SharingMode::eConcurrent;
+  } else {
+    sharing_mode = vk::SharingMode::eExclusive;
+    queue_family_indices = {};
+  }
   vk::SwapchainCreateInfoKHR sc_ci{
       .flags = {},
       .surface = context->surface,
@@ -95,7 +104,7 @@ void create(backend_context *context) {
       .imageExtent = extent,
       .imageArrayLayers = 1,
       .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
-      .imageSharingMode = vk::SharingMode::eConcurrent,
+      .imageSharingMode = sharing_mode,
       .queueFamilyIndexCount = queue_family_indices.size(),
       .pQueueFamilyIndices = queue_family_indices.data(),
       .preTransform = sc_s.capabilities.currentTransform,
