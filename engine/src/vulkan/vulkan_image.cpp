@@ -105,7 +105,7 @@ void vulkan_image_transition_layout(backend_context* context,
           {
               .aspectMask = vk::ImageAspectFlagBits::eColor,
               .baseMipLevel = 0,
-              .levelCount = 0,
+              .levelCount = vk::RemainingMipLevels,
               .layerCount = 1,
           },
   };
