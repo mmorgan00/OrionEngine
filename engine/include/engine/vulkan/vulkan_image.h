@@ -10,10 +10,12 @@ void vulkan_image_copy_from_buffer(backend_context* context,
                                    uint32_t height, uint32_t width);
 
 void vulkan_image_create(backend_context* context, uint32_t height,
-                         uint32_t width, vulkan_image* out_image);
+                         uint32_t width, vk::Format format,
+                         vulkan_image* out_image);
 
 void vulkan_image_create_view(backend_context* context, vk::Format format,
-                              vk::Image* image, vk::ImageView* out_image_view);
+                              vk::ImageAspectFlagBits flags, vk::Image* image,
+                              vk::ImageView* out_image_view);
 
 void vulkan_image_create_sampler(backend_context* context, vulkan_image* image,
                                  vk::Sampler* out_sampler);

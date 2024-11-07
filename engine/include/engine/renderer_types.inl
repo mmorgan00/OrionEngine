@@ -21,7 +21,7 @@ typedef struct UniformBufferObject {
 
 // TODO: Just doing this for convenience for now. Vertex shouldn't be color data
 typedef struct Vertex {
-  glm::vec2 pos;
+  glm::vec3 pos;
   glm::vec3 color;
   glm::vec2 tex_coord;
 
@@ -40,7 +40,7 @@ typedef struct Vertex {
     vk::VertexInputAttributeDescription vert_desc = {
         .location = 0,
         .binding = 0,
-        .format = vk::Format::eR32G32Sfloat,
+        .format = vk::Format::eR32G32B32Sfloat,
         .offset = offsetof(Vertex, pos)};
 
     vk::VertexInputAttributeDescription color_desc = {
@@ -66,13 +66,19 @@ typedef struct Vertex {
 // TODO: REMOVE THIS. WE JUST WANT TO DRAW SOME GEOMETRY FOR NOW. /MAYBE/ we'll
 // keep it for texture coords interleaved but big if
 const std::vector<Vertex> vertices = {
-    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}};
+    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
 
-const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
-// TODO: Move these all to a 'vulkan types'. We should abstract more so we can
+    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
+
+const std::vector<uint16_t> indices = {4, 5, 6, 6, 7, 4, 0, 1, 2, 2, 3, 0};
+// TODO: Move these all to a 'vulkan types'. We should
+// abstract more so we can
 // support other APIs potentially
 #define MAX_FRAMES_IN_FLIGHT 2
 

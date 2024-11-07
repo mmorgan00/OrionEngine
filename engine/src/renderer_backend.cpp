@@ -19,6 +19,7 @@
 #include "engine/vulkan/vulkan_swapchain.h"
 
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -48,6 +49,48 @@ VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(
     VkAllocationCallbacks const *pAllocator) {
   return pfnVkDestroyDebugUtilsMessengerEXT(instance, messenger, pAllocator);
 }
+
+vk::Format find_supported_format(const std::vector<vk::Format> &candidates,
+                                 vk::ImageTiling tiling,
+                                 vk::FormatFeatureFlags features) {
+  for (const auto &format : candidates) {
+    vk::FormatProperties props =
+        context.device.physical_device.getFormatProperties(format);
+
+    if (tiling == vk::ImageTiling::eLinear &&
+        (props.linearTilingFeatures & features) == features) {
+      return format;
+    } else if (tiling == vk::ImageTiling::eOptimal &&
+               (props.optimalTilingFeatures & features) == features) {
+      return format;
+    }
+  }
+
+  throw std::runtime_error("failed to find supported format!");
+}
+
+vk::Format find_depth_format() {
+  return find_supported_format(
+      {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint,
+       vk::Format::eD24UnormS8Uint},
+      vk::ImageTiling::eOptimal,
+      vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+}
+
+void create_depth_resources() {
+  vk::Format depth_format = find_depth_format();
+  vulkan_image depth_image;
+  vulkan_image_create(&context, context.swapchain.extent.height,
+                      context.swapchain.extent.width, depth_format,
+                      &depth_image);
+  vulkan_image_create_view(&context, depth_format,
+                           vk::ImageAspectFlagBits::eDepth, &depth_image.handle,
+                           &depth_image.view);
+  vulkan_image_transition_layout(
+      &context, &depth_image, depth_format, vk::ImageLayout::eUndefined,
+      vk::ImageLayout::eDepthStencilAttachmentOptimal);
+}
+
 void renderer_create_texture() {
   // TODO: Temp code
   int width, height, channels;
@@ -62,7 +105,8 @@ void renderer_create_texture() {
 
   vulkan_buffer_load_data(&context, &staging, 0, 0, width * height * 4, pixels);
 
-  vulkan_image_create(&context, height, width, &context.default_texture.image);
+  vulkan_image_create(&context, height, width, vk::Format::eR8G8B8A8Srgb,
+                      &context.default_texture.image);
   vulkan_image_transition_layout(
       &context, &context.default_texture.image, vk::Format::eR8G8B8A8Srgb,
       vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
@@ -76,6 +120,7 @@ void renderer_create_texture() {
   vulkan_buffer_destroy(&context, &staging);
 
   vulkan_image_create_view(&context, vk::Format::eR8G8B8A8Srgb,
+                           vk::ImageAspectFlagBits::eColor,
                            &context.default_texture.image.handle,
                            &context.default_texture.image.view);
 
@@ -591,7 +636,7 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   // Create command buffers
   create_command_pool();
   create_command_buffer();
-
+  create_depth_resources();
   create_sync_objects();
 
   create_buffers();

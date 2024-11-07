@@ -11,6 +11,10 @@
 #include "engine/vulkan/vulkan_buffer.h"
 #include "engine/vulkan/vulkan_command_buffer.h"
 
+bool has_stencil_component(vk::Format format) {
+  return format == vk::Format::eD32SfloatS8Uint ||
+         format == vk::Format::eD24UnormS8Uint;
+}
 /**
  * @brief creates a vulkan image sampler
  */
@@ -43,7 +47,8 @@ void vulkan_image_create_sampler(backend_context* context, vulkan_image* image,
  * @param image - The vulkan_image to save the image view into
  */
 void vulkan_image_create_view(backend_context* context, vk::Format format,
-                              vk::Image* image, vk::ImageView* out_image_view) {
+                              vk::ImageAspectFlagBits flags, vk::Image* image,
+                              vk::ImageView* out_image_view) {
   vk::ImageViewCreateInfo view_ci{
       .image = *image,
       .viewType = vk::ImageViewType::e2D,
@@ -52,7 +57,7 @@ void vulkan_image_create_view(backend_context* context, vk::Format format,
                      .g = vk::ComponentSwizzle::eIdentity,
                      .b = vk::ComponentSwizzle::eIdentity,
                      .a = vk::ComponentSwizzle::eIdentity},
-      .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+      .subresourceRange = {.aspectMask = flags,
                            .baseMipLevel = 0,
                            .levelCount = 1,
                            .baseArrayLayer = 0,
@@ -128,8 +133,15 @@ void vulkan_image_transition_layout(backend_context* context,
 
     src_stage = vk::PipelineStageFlagBits::eTransfer;
     dst_stage = vk::PipelineStageFlagBits::eFragmentShader;
+  } else if (new_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+    barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+    if (has_stencil_component(format)) {
+      barrier.subresourceRange.aspectMask |= vk::ImageAspectFlagBits::eStencil;
+    } else {
+      barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+    }
   } else {
-    throw std::invalid_argument("unsupported layout transition!");
+    throw std::invalid_argument("Invalid transition");
   }
   cmd_buf.pipelineBarrier(src_stage, dst_stage, vk::DependencyFlags(),
                           static_cast<uint32_t>(0), nullptr,
@@ -139,11 +151,12 @@ void vulkan_image_transition_layout(backend_context* context,
 }
 
 void vulkan_image_create(backend_context* context, uint32_t height,
-                         uint32_t width, vulkan_image* out_image) {
+                         uint32_t width, vk::Format format,
+                         vulkan_image* out_image) {
   vk::ImageCreateInfo image_ci{
       .flags = vk::ImageCreateFlags(),
       .imageType = vk::ImageType::e2D,
-      .format = vk::Format::eR8G8B8A8Srgb,
+      .format = format,
       .extent =
           {
               .width = width,

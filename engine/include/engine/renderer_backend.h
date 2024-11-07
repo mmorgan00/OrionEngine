@@ -6,11 +6,15 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
+#include <vulkan/vulkan.hpp>
+
 #include "engine/platform.h"
 
 bool renderer_backend_initialize(platform_state* plat_state);
 
 void renderer_create_texture();
+
+vk::Format find_depth_format();
 
 void renderer_backend_draw_frame();
 void renderer_backend_draw_image(uint32_t image_index);

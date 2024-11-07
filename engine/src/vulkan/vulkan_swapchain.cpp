@@ -167,6 +167,7 @@ void vulkan_swapchain_create_image_views(backend_context *context) {
 
   for (size_t i = 0; i < context->swapchain.image_count; i++) {
     vulkan_image_create_view(context, context->swapchain.image_format,
+                             vk::ImageAspectFlagBits::eColor,
                              &context->swapchain.images[i],
                              &context->swapchain.views[i]);
   }
