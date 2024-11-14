@@ -7,6 +7,9 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
 #define VULKAN_HPP_NO_CONSTRUCTORS
 #include <vulkan/vulkan.hpp>
 
@@ -20,11 +23,17 @@ typedef struct UniformBufferObject {
   glm::mat4 proj;
 } ubo;
 
-// TODO: Just doing this for convenience for now. Vertex shouldn't be color data
+// TODO: Just doing this for convenience for now. Vertex shouldn't be color
+// data
 typedef struct Vertex {
   glm::vec3 pos;
   glm::vec3 color;
   glm::vec2 tex_coord;
+
+  bool operator==(const Vertex& other) const {
+    return pos == other.pos && color == other.color &&
+           tex_coord == other.tex_coord;
+  }
 
   static std::array<vk::VertexInputBindingDescription, 1>
   get_binding_description() {
@@ -64,20 +73,32 @@ typedef struct Vertex {
   }
 } Vertex;
 
+namespace std {
+template <>
+struct hash<Vertex> {
+  size_t operator()(Vertex const& vertex) const {
+    return ((hash<glm::vec3>()(vertex.pos) ^
+             (hash<glm::vec3>()(vertex.color) << 1)) >>
+            1) ^
+           (hash<glm::vec2>()(vertex.tex_coord) << 1);
+  };
+};
+}  // namespace std
 // TODO: REMOVE THIS. WE JUST WANT TO DRAW SOME GEOMETRY FOR NOW. /MAYBE/ we'll
 // keep it for texture coords interleaved but big if
-const std::vector<Vertex> vertices = {
-    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+/**= {
+   {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+   {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+   {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+   {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
 
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
+   {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+   {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+   {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+   {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
+**/
 
-const std::vector<uint16_t> indices = {4, 5, 6, 6, 7, 4, 0, 1, 2, 2, 3, 0};
+// = {4, 5, 6, 6, 7, 4, 0, 1, 2, 2, 3, 0};
 // TODO: Move these all to a 'vulkan types'. We should
 // abstract more so we can
 // support other APIs potentially

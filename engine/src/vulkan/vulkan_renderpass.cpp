@@ -43,11 +43,9 @@ void vulkan_renderpass_create(backend_context* context,
       .srcSubpass = vk::SubpassExternal,
       .dstSubpass = 0,
       .srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                      vk::PipelineStageFlagBits::eEarlyFragmentTests |
-                      vk::PipelineStageFlagBits::eTopOfPipe,
+                      vk::PipelineStageFlagBits::eEarlyFragmentTests,
       .dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                      vk::PipelineStageFlagBits::eEarlyFragmentTests |
-                      vk::PipelineStageFlagBits::eBottomOfPipe,
+                      vk::PipelineStageFlagBits::eEarlyFragmentTests,
       .srcAccessMask = vk::AccessFlagBits::eNone,
       .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite |
                        vk::AccessFlagBits::eDepthStencilAttachmentWrite};

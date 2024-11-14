@@ -12,6 +12,8 @@ bool renderer_backend_initialize(platform_state* plat_state);
 
 void renderer_create_texture();
 
+void renderer_backend_load_geometry();
+
 vk::Format find_depth_format();
 
 void renderer_backend_draw_frame();

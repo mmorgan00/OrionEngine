@@ -7,11 +7,14 @@
 #include <cstdint>
 #include <cstring>
 #include <exception>
+#include <glm/ext/matrix_transform.hpp>
+#include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan_enums.hpp>
 
 #include "engine/logger.h"
 #include "engine/platform.h"
+#include "engine/renderer_types.inl"
 #include "engine/vulkan/vulkan_buffer.h"
 #include "engine/vulkan/vulkan_device.h"
 #include "engine/vulkan/vulkan_image.h"
@@ -24,15 +27,33 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "engine/resources/tiny_obj_loader.h"
+
 #define GLFW_INCLUDE_VULKAN
 #define VK_USE_PLATFORM_WAYLAND_KHR
 #include <GLFW/glfw3.h>
 
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 static backend_context context;
+static std::vector<Vertex> vertices;
+// = {
+//     {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+//     {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+//     {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+//     {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+
+//     {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+//     {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+//     {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+//     {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
+
+static std::vector<uint32_t> indices;
+// = {4, 5, 6, 6, 7, 4, 0, 1, 2, 2, 3, 0};
 
 PFN_vkCreateDebugUtilsMessengerEXT pfnVkCreateDebugUtilsMessengerEXT;
 PFN_vkDestroyDebugUtilsMessengerEXT pfnVkDestroyDebugUtilsMessengerEXT;
@@ -49,6 +70,60 @@ VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(
     VkInstance instance, VkDebugUtilsMessengerEXT messenger,
     VkAllocationCallbacks const *pAllocator) {
   return pfnVkDestroyDebugUtilsMessengerEXT(instance, messenger, pAllocator);
+}
+
+void renderer_backend_load_geometry() {
+  // TODO: EVERYTHING will be here for now. obj reading, vertex parsing, etc.
+  // Later, this should be separated out, geometry sent to a more proper system
+  // since geometry can be re-used in a scene, texture loading should happen in
+  // some kind of material system, and god forbid we have object specific
+  // transformations
+
+  // But for now....
+
+  // 1. Load the model from file
+  // TODO: Make these not hardcoded, but also see above
+  const std::string model_path = "../bin/assets/models/viking_room.obj";
+  // const std::string texture_path = "";
+  // int height;
+  // int width;
+  // int channels;
+
+  // void *pixels = platform_open_image(texture_path, &height, &width,
+  // &channels);
+
+  tinyobj::attrib_t attributes;
+  std::vector<tinyobj::shape_t> shapes;
+  std::vector<tinyobj::material_t> materials;
+  std::string warn, err;
+
+  if (!tinyobj::LoadObj(&attributes, &shapes, &materials, &warn, &err,
+                        model_path.c_str())) {
+    throw std::runtime_error(warn + err);
+  }
+
+  std::unordered_map<Vertex, uint32_t> unique_verts{};
+  for (const auto &shape : shapes) {
+    for (const auto &index : shape.mesh.indices) {
+      Vertex vertex{};
+
+      vertex.pos = {attributes.vertices[3 * index.vertex_index + 0],
+                    attributes.vertices[3 * index.vertex_index + 1],
+                    attributes.vertices[3 * index.vertex_index + 2]};
+
+      vertex.tex_coord = {
+          attributes.texcoords[2 * index.texcoord_index + 0],
+          1.0f - attributes.texcoords[2 * index.texcoord_index + 1]};
+
+      vertex.color = {1.0f, 1.0f, 1.0f};
+      vertices.push_back(vertex);
+      if (unique_verts.count(vertex) == 0) {
+        unique_verts[vertex] = static_cast<uint32_t>(vertices.size());
+        vertices.push_back(vertex);
+      }
+      indices.push_back(unique_verts[vertex]);
+    }
+  }
 }
 
 vk::Format find_supported_format(const std::vector<vk::Format> &candidates,
@@ -95,8 +170,8 @@ void create_depth_resources() {
 void renderer_create_texture() {
   // TODO: Temp code
   int width, height, channels;
-  void *pixels =
-      platform_open_image("textures/texture.jpg", &height, &width, &channels);
+  void *pixels = platform_open_image("textures/viking_room.png", &height,
+                                     &width, &channels);
 
   vulkan_buffer staging;
   vulkan_buffer_create(&context, vk::BufferUsageFlagBits::eTransferSrc,
@@ -293,15 +368,18 @@ void update_ubo(uint32_t frame_index) {
                    .count();
 
   UniformBufferObject ubo{};
-  ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
-                          glm::vec3(0.0f, 0.0f, 1.0f));
+  // TODO: PULL FROM SOME KIND OF CONTROLLER/CAMERA.
+  // Maybe should be passed in to this
+  ubo.model = glm::identity<glm::mat4>();
+  // glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
+  // glm::vec3(0.0f, 0.0f, 1.0f));
   ubo.view =
       glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
                   glm::vec3(0.0f, 0.0f, 1.0f));
-  ubo.proj = glm::perspective(
-      glm::radians(45.0f),
-      context.swapchain.extent.width / (float)context.swapchain.extent.height,
-      0.1f, 10.0f);
+  ubo.proj = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f,
+                              // context.swapchain.extent.width /
+                              // (float)context.swapchain.extent.height,
+                              0.1f, 10.0f);
   ubo.proj[1][1] *= -1;  // we're not in openGL
   memcpy(context.uniform_buffer_memory[frame_index], &ubo, sizeof(ubo));
 }
@@ -403,7 +481,7 @@ void renderer_backend_draw_image(uint32_t image_index) {
   cmd_buff.bindVertexBuffers(0, 1, vertex_buffers, offsets);
 
   cmd_buff.bindIndexBuffer(context.index_buff.handle, 0,
-                           vk::IndexType::eUint16);
+                           vk::IndexType::eUint32);
 
   // Create viewport and scissor since we specified dynamic earlier
   vk::Viewport viewport{

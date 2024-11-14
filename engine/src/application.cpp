@@ -21,6 +21,9 @@ void application_initialize(platform_state *state) {
   plat_state = state;
 
   glfwSetKeyCallback(plat_state->window, key_callback);
+
+  load_object();
+  OE_LOG(LOG_LEVEL_INFO, "Application initialized!");
 }
 
 bool application_run() {

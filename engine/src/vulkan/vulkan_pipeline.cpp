@@ -165,9 +165,11 @@ void vulkan_pipeline_create(backend_context* context,
   vk::PipelineDepthStencilStateCreateInfo depth_stencil_create_info{
       .depthTestEnable = vk::True,
       .depthWriteEnable = vk::True,
-      .depthCompareOp = vk::CompareOp::eLess,
+      .depthCompareOp = vk::CompareOp::eLessOrEqual,
       .depthBoundsTestEnable = vk::False,
       .stencilTestEnable = vk::False,
+      .minDepthBounds = 0.0f,
+      .maxDepthBounds = 1.0f,
   };
 
   vk::GraphicsPipelineCreateInfo pipeline_create_info{

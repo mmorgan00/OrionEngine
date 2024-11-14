@@ -12,6 +12,8 @@ bool renderer_initialize(platform_state *plat_state) {
   return false;
 }
 
+void load_object() { renderer_backend_load_geometry(); }
+
 void draw_frame() {
   // TODO: call draw for each object, swap textures, shaders, materials, etc
   // etc. LOTS will happen here

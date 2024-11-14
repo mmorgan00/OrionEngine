@@ -7,8 +7,8 @@
 
 int main() {
   platform_state *plat_state = platform_initialize();
-  renderer_initialize(plat_state);
   application_initialize(plat_state);
+  renderer_initialize(plat_state);
   while (application_run());
   application_shutdown();
   platform_shutdown();
