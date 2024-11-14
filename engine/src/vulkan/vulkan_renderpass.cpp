@@ -20,7 +20,7 @@ void vulkan_renderpass_create(backend_context* context,
       .stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
       .stencilStoreOp = vk::AttachmentStoreOp::eDontCare,
       .initialLayout = vk::ImageLayout::eUndefined,
-      .finalLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal};
+      .finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal};
 
   vk::AttachmentDescription color_attachment{
       .format = context->swapchain.image_format,
@@ -33,7 +33,8 @@ void vulkan_renderpass_create(backend_context* context,
       .finalLayout = vk::ImageLayout::ePresentSrcKHR};
 
   vk::AttachmentReference depth_attachment_ref{
-      .attachment = 1, .layout = vk::ImageLayout::eDepthAttachmentOptimal};
+      .attachment = 1,
+      .layout = vk::ImageLayout::eDepthStencilAttachmentOptimal};
 
   vk::AttachmentReference color_attachment_ref{
       .attachment = 0, .layout = vk::ImageLayout::eColorAttachmentOptimal};
@@ -42,9 +43,11 @@ void vulkan_renderpass_create(backend_context* context,
       .srcSubpass = vk::SubpassExternal,
       .dstSubpass = 0,
       .srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                      vk::PipelineStageFlagBits::eEarlyFragmentTests,
+                      vk::PipelineStageFlagBits::eEarlyFragmentTests |
+                      vk::PipelineStageFlagBits::eTopOfPipe,
       .dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                      vk::PipelineStageFlagBits::eEarlyFragmentTests,
+                      vk::PipelineStageFlagBits::eEarlyFragmentTests |
+                      vk::PipelineStageFlagBits::eBottomOfPipe,
       .srcAccessMask = vk::AccessFlagBits::eNone,
       .dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite |
                        vk::AccessFlagBits::eDepthStencilAttachmentWrite};

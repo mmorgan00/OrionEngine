@@ -5,8 +5,6 @@
 #include <algorithm>  // Necessary for std::clamp
 #include <limits>     // Necessary for std::numeric_limits
 #include <vector>
-#include <vulkan/vulkan_enums.hpp>
-#include <vulkan/vulkan_handles.hpp>
 
 #include "engine/logger.h"
 #include "engine/renderer_types.inl"

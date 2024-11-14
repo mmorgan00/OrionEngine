@@ -1,12 +1,13 @@
 #ifndef RENDERER_TYPES
 #define RENDERER_TYPES
 
-#define VULKAN_HPP_NO_CONSTRUCTORS
 #include <GLFW/glfw3.h>
 
 #include <array>
 #include <glm/glm.hpp>
 #include <vector>
+
+#define VULKAN_HPP_NO_CONSTRUCTORS
 #include <vulkan/vulkan.hpp>
 
 #include "engine/asserts.h"
@@ -170,6 +171,7 @@ typedef struct backend_context {
   vulkan_renderpass main_renderpass;
   vk::CommandPool command_pool;
   std::vector<vk::CommandBuffer> command_buffer;
+  vulkan_image depth_image;
   vulkan_buffer vert_buff;
   vulkan_buffer index_buff;
 #ifndef NDEBUG

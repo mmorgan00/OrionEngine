@@ -4,11 +4,9 @@
 #include <cstdint>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#include <vulkan/vulkan.h>
-
-#include <vulkan/vulkan.hpp>
 
 #include "engine/platform.h"
+#include "engine/renderer_types.inl"
 
 bool renderer_backend_initialize(platform_state* plat_state);
 

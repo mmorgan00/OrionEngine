@@ -11,6 +11,7 @@ void vulkan_image_copy_from_buffer(backend_context* context,
 
 void vulkan_image_create(backend_context* context, uint32_t height,
                          uint32_t width, vk::Format format,
+                         vk::Flags<vk::ImageUsageFlagBits> usage,
                          vulkan_image* out_image);
 
 void vulkan_image_create_view(backend_context* context, vk::Format format,

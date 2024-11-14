@@ -114,7 +114,6 @@ void vulkan_image_transition_layout(backend_context* context,
               .layerCount = 1,
           },
   };
-
   vk::PipelineStageFlags src_stage;
   vk::PipelineStageFlags dst_stage;
   // Set access masks
@@ -133,16 +132,27 @@ void vulkan_image_transition_layout(backend_context* context,
 
     src_stage = vk::PipelineStageFlagBits::eTransfer;
     dst_stage = vk::PipelineStageFlagBits::eFragmentShader;
-  } else if (new_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
-    barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
-    if (has_stencil_component(format)) {
-      barrier.subresourceRange.aspectMask |= vk::ImageAspectFlagBits::eStencil;
-    } else {
-      barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-    }
+  } else if (old_layout == vk::ImageLayout::eUndefined &&
+             new_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+    barrier.srcAccessMask = vk::AccessFlagBits::eNone;
+    barrier.dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentRead |
+                            vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+
+    src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
+    dst_stage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
   } else {
     throw std::invalid_argument("Invalid transition");
   }
+
+  if (new_layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+    barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+    if (has_stencil_component(format)) {
+      barrier.subresourceRange.aspectMask |= vk::ImageAspectFlagBits::eStencil;
+    }
+  } else {
+    barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+  }
+
   cmd_buf.pipelineBarrier(src_stage, dst_stage, vk::DependencyFlags(),
                           static_cast<uint32_t>(0), nullptr,
                           static_cast<uint32_t>(0), nullptr, 1, &barrier);
@@ -152,6 +162,7 @@ void vulkan_image_transition_layout(backend_context* context,
 
 void vulkan_image_create(backend_context* context, uint32_t height,
                          uint32_t width, vk::Format format,
+                         vk::Flags<vk::ImageUsageFlagBits> usage,
                          vulkan_image* out_image) {
   vk::ImageCreateInfo image_ci{
       .flags = vk::ImageCreateFlags(),
@@ -167,8 +178,7 @@ void vulkan_image_create(backend_context* context, uint32_t height,
       .arrayLayers = 1,
       .samples = vk::SampleCountFlagBits::e1,
       .tiling = vk::ImageTiling::eOptimal,
-      .usage = vk::ImageUsageFlagBits::eTransferDst |
-               vk::ImageUsageFlagBits::eSampled,
+      .usage = usage,
       .sharingMode = vk::SharingMode::eExclusive,
       .initialLayout = vk::ImageLayout::eUndefined,
   };

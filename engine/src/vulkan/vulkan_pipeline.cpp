@@ -4,6 +4,7 @@
 
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_enums.hpp>
+#include <vulkan/vulkan_structs.hpp>
 
 #include "engine/logger.h"
 #include "engine/renderer_types.inl"
@@ -161,6 +162,14 @@ void vulkan_pipeline_create(backend_context* context,
   out_pipeline->layout =
       context->device.logical_device.createPipelineLayout(pipeline_layout_info);
 
+  vk::PipelineDepthStencilStateCreateInfo depth_stencil_create_info{
+      .depthTestEnable = vk::True,
+      .depthWriteEnable = vk::True,
+      .depthCompareOp = vk::CompareOp::eLess,
+      .depthBoundsTestEnable = vk::False,
+      .stencilTestEnable = vk::False,
+  };
+
   vk::GraphicsPipelineCreateInfo pipeline_create_info{
       .stageCount = 2,
       .pStages = shader_stages,
@@ -169,7 +178,7 @@ void vulkan_pipeline_create(backend_context* context,
       .pViewportState = &viewport_state,
       .pRasterizationState = &rasterizer,
       .pMultisampleState = &multisampling,
-      .pDepthStencilState = nullptr,
+      .pDepthStencilState = &depth_stencil_create_info,
       .pColorBlendState = &color_blending,
       .pDynamicState = &dynamic_state,
       .layout = out_pipeline->layout,

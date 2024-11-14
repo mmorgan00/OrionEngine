@@ -6,11 +6,12 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <exception>
 #include <vector>
+#include <vulkan/vulkan_enums.hpp>
 
 #include "engine/logger.h"
 #include "engine/platform.h"
-#include "engine/renderer_types.inl"
 #include "engine/vulkan/vulkan_buffer.h"
 #include "engine/vulkan/vulkan_device.h"
 #include "engine/vulkan/vulkan_image.h"
@@ -79,15 +80,15 @@ vk::Format find_depth_format() {
 
 void create_depth_resources() {
   vk::Format depth_format = find_depth_format();
-  vulkan_image depth_image;
   vulkan_image_create(&context, context.swapchain.extent.height,
                       context.swapchain.extent.width, depth_format,
-                      &depth_image);
-  vulkan_image_create_view(&context, depth_format,
-                           vk::ImageAspectFlagBits::eDepth, &depth_image.handle,
-                           &depth_image.view);
+                      vk::ImageUsageFlagBits::eDepthStencilAttachment,
+                      &context.depth_image);
+  vulkan_image_create_view(
+      &context, depth_format, vk::ImageAspectFlagBits::eDepth,
+      &context.depth_image.handle, &context.depth_image.view);
   vulkan_image_transition_layout(
-      &context, &depth_image, depth_format, vk::ImageLayout::eUndefined,
+      &context, &context.depth_image, depth_format, vk::ImageLayout::eUndefined,
       vk::ImageLayout::eDepthStencilAttachmentOptimal);
 }
 
@@ -105,8 +106,10 @@ void renderer_create_texture() {
 
   vulkan_buffer_load_data(&context, &staging, 0, 0, width * height * 4, pixels);
 
-  vulkan_image_create(&context, height, width, vk::Format::eR8G8B8A8Srgb,
-                      &context.default_texture.image);
+  vulkan_image_create(
+      &context, height, width, vk::Format::eR8G8B8A8Srgb,
+      vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+      &context.default_texture.image);
   vulkan_image_transition_layout(
       &context, &context.default_texture.image, vk::Format::eR8G8B8A8Srgb,
       vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
@@ -377,15 +380,17 @@ void renderer_backend_draw_image(uint32_t image_index) {
 
   vk::ClearColorValue clear_color_value{.float32 = color_constants_array};
 
-  vk::ClearValue clear_color{.color = clear_color_value};
+  vk::ClearValue color_clear = {.color = clear_color_value};
+  vk::ClearValue depth_clear = {.depthStencil = {1.0f, 0}};
+  std::array<vk::ClearValue, 2> clear_color{color_clear, depth_clear};
 
   vk::RenderPassBeginInfo render_pass_info{
       .renderPass = context.main_renderpass.handle,
       .framebuffer = context.swapchain.framebuffers[image_index],
       .renderArea = {.offset = {.x = 0, .y = 0},
                      .extent = context.swapchain.extent},
-      .clearValueCount = 1,
-      .pClearValues = &clear_color  // Use address-of operator for pointer
+      .clearValueCount = 2,
+      .pClearValues = clear_color.data()  // Use address-of operator for pointer
   };
   cmd_buff.beginRenderPass(render_pass_info, vk::SubpassContents::eInline);
   // Bind pipeline
@@ -438,6 +443,11 @@ void create_command_pool() {
   };
   context.command_pool = context.device.logical_device.createCommandPool(
       pool_create_info, nullptr);
+  if (!context.command_pool) {
+    OE_LOG(LOG_LEVEL_FATAL, "Failed to create command pool!");
+    throw new std::exception();
+  }
+  OE_LOG(LOG_LEVEL_INFO, "Created command pool");
   return;
 }
 void create_command_buffer() {
@@ -447,7 +457,6 @@ void create_command_buffer() {
       .level = vk::CommandBufferLevel::ePrimary,
       .commandBufferCount =
           static_cast<uint32_t>(context.command_buffer.size())};
-
   context.command_buffer = context.device.logical_device.allocateCommandBuffers(
       cmdbuffer_alloc_info);
 }
@@ -462,11 +471,12 @@ bool check_validation_layer_support();
 void generate_framebuffers(backend_context *context) {
   context->swapchain.framebuffers.resize(context->swapchain.images.size());
   for (size_t i = 0; i < context->swapchain.images.size(); i++) {
-    std::array<vk::ImageView, 1> attachments = {context->swapchain.views[i]};
+    std::array<vk::ImageView, 2> attachments = {context->swapchain.views[i],
+                                                context->depth_image.view};
 
     vk::FramebufferCreateInfo framebuffer_ci{
         .renderPass = context->main_renderpass.handle,
-        .attachmentCount = 1,
+        .attachmentCount = attachments.size(),
         .pAttachments = attachments.data(),
         .width = context->swapchain.extent.width,
         .height = context->swapchain.extent.height,
@@ -631,12 +641,13 @@ bool renderer_backend_initialize(platform_state *plat_state) {
   vulkan_shader_create(&context, &context.main_renderpass, "default.vert.spv",
                        "default.frag.spv");
 
+  create_command_pool();
+  create_command_buffer();
+
+  create_depth_resources();
   generate_framebuffers(&context);
 
   // Create command buffers
-  create_command_pool();
-  create_command_buffer();
-  create_depth_resources();
   create_sync_objects();
 
   create_buffers();
@@ -656,8 +667,14 @@ void renderer_backend_shutdown() {
     OE_LOG(LOG_LEVEL_INFO, "Renderer shutting down");
     device.waitIdle();
 
+    OE_LOG(LOG_LEVEL_INFO, "Destroying scene buffers");
     vulkan_buffer_destroy(&context, &context.vert_buff);
     vulkan_buffer_destroy(&context, &context.index_buff);
+
+    OE_LOG(LOG_LEVEL_INFO, "Destroying uniforms");
+    device.destroyImage(context.depth_image.handle, nullptr);
+    device.destroyImageView(context.depth_image.view, nullptr);
+    device.freeMemory(context.depth_image.memory, nullptr);
 
     for (size_t i = 0; i < context.uniform_buffers.size(); i++) {
       vulkan_buffer_destroy(&context, &context.uniform_buffers[i]);
