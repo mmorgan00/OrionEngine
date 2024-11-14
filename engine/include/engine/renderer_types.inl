@@ -2,32 +2,133 @@
 #define RENDERER_TYPES
 
 #include <GLFW/glfw3.h>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
+#include <array>
+#include <glm/glm.hpp>
 #include <vector>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
+#define VULKAN_HPP_NO_CONSTRUCTORS
+#include <vulkan/vulkan.hpp>
 
 #include "engine/asserts.h"
 
+// Renderer 'primitives'
+
+typedef struct UniformBufferObject {
+  glm::mat4 model;
+  glm::mat4 view;
+  glm::mat4 proj;
+} ubo;
+
+// TODO: Just doing this for convenience for now. Vertex shouldn't be color
+// data
+typedef struct Vertex {
+  glm::vec3 pos;
+  glm::vec3 color;
+  glm::vec2 tex_coord;
+
+  bool operator==(const Vertex& other) const {
+    return pos == other.pos && color == other.color &&
+           tex_coord == other.tex_coord;
+  }
+
+  static std::array<vk::VertexInputBindingDescription, 1>
+  get_binding_description() {
+    vk::VertexInputBindingDescription binding_desc{
+        .binding = 0,
+        .stride = sizeof(Vertex),
+        .inputRate = vk::VertexInputRate::eVertex,
+    };
+    std::array<vk::VertexInputBindingDescription, 1> binding = {{binding_desc}};
+    return binding;
+  };
+  static std::array<vk::VertexInputAttributeDescription, 3>
+  get_attribute_descriptions() {
+    vk::VertexInputAttributeDescription vert_desc = {
+        .location = 0,
+        .binding = 0,
+        .format = vk::Format::eR32G32B32Sfloat,
+        .offset = offsetof(Vertex, pos)};
+
+    vk::VertexInputAttributeDescription color_desc = {
+        .location = 1,
+        .binding = 0,
+        .format = vk::Format::eR32G32Sfloat,
+        .offset = offsetof(Vertex, color)};
+
+    vk::VertexInputAttributeDescription tex_desc = {
+        .location = 2,
+        .binding = 0,
+        .format = vk::Format::eR32G32Sfloat,
+        .offset = offsetof(Vertex, tex_coord)};
+
+    std::array<vk::VertexInputAttributeDescription, 3> attribute_descriptions{
+        vert_desc, color_desc, tex_desc
+
+    };
+    return attribute_descriptions;
+  }
+} Vertex;
+
+namespace std {
+template <>
+struct hash<Vertex> {
+  size_t operator()(Vertex const& vertex) const {
+    return ((hash<glm::vec3>()(vertex.pos) ^
+             (hash<glm::vec3>()(vertex.color) << 1)) >>
+            1) ^
+           (hash<glm::vec2>()(vertex.tex_coord) << 1);
+  };
+};
+}  // namespace std
+// TODO: REMOVE THIS. WE JUST WANT TO DRAW SOME GEOMETRY FOR NOW. /MAYBE/ we'll
+// keep it for texture coords interleaved but big if
+/**= {
+   {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+   {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+   {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+   {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+
+   {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+   {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+   {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+   {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
+**/
+
+// = {4, 5, 6, 6, 7, 4, 0, 1, 2, 2, 3, 0};
+// TODO: Move these all to a 'vulkan types'. We should
+// abstract more so we can
+// support other APIs potentially
+#define MAX_FRAMES_IN_FLIGHT 2
+
+typedef struct vulkan_image {
+  vk::Image handle;
+  vk::DeviceMemory memory;
+  vk::ImageView view;
+} vulkan_image;
+
 typedef struct vulkan_swapchain_support_info {
-  VkSurfaceCapabilitiesKHR capabilities;
+  vk::SurfaceCapabilitiesKHR capabilities;
   uint32_t format_count;
-  std::vector<VkSurfaceFormatKHR> formats;
+  std::vector<vk::SurfaceFormatKHR> formats;
   uint32_t present_mode_count;
-  VkPresentModeKHR* present_modes;
+  vk::PresentModeKHR* present_modes;
 } vulkan_swapchain_support_info;
 
 typedef struct vulkan_device {
-  VkPhysicalDevice physical_device;
-  VkDevice logical_device;
+  vk::PhysicalDevice physical_device;
+  vk::Device logical_device;
   vulkan_swapchain_support_info swapchain_support;
   int graphics_queue_index;
   int present_queue_index;
   int transfer_queue_index;
 
-  VkQueue graphics_queue;
-  VkQueue present_queue;
-  VkQueue transfer_queue;
+  vk::Queue graphics_queue;
+  vk::Queue present_queue;
+  vk::Queue transfer_queue;
 
   VkCommandPool graphics_command_pool;
 
@@ -39,32 +140,37 @@ typedef struct vulkan_device {
 } vulkan_device;
 
 typedef struct vulkan_renderpass {
-  VkRenderPass handle;
+  vk::RenderPass handle;
 } vulkan_renderpass;
 
 typedef struct vulkan_swapchain {
-  VkFormat image_format;
-  short max_frames_in_flight;
-  VkSwapchainKHR handle;
-  VkExtent2D extent;
+  vk::Format image_format;
+  vk::SwapchainKHR handle;
+  vk::Extent2D extent;
   uint32_t image_count;
-  std::vector<VkImage> images;
-  std::vector<VkImageView> views;  // images not accessed directly in Vulkan
-  std::vector<VkFramebuffer> framebuffers;
+  std::vector<vk::Image> images;
+  std::vector<vk::ImageView> views;  // images not accessed directly in Vulkan
+  std::vector<vk::Framebuffer> framebuffers;
 } vulkan_swapchain;
 
 typedef struct vulkan_pipeline {
-  VkPipeline handle;
-  VkPipelineLayout layout;
+  vk::Pipeline handle;
+  vk::PipelineLayout layout;
+  vk::DescriptorSetLayout descriptor_set_layout{};
 } vulkan_pipeline;
 
 typedef struct vulkan_shader_stage {
-  VkShaderModuleCreateInfo create_info;
-  VkShaderModule handle;
-  VkPipelineShaderStageCreateInfo shader_stage_create_info;
+  vk::ShaderModuleCreateInfo create_info;
+  vk::ShaderModule handle;
+  vk::PipelineShaderStageCreateInfo shader_stage_create_info;
 } vulkan_shader_stage;
 
 #define OBJECT_SHADER_STAGE_COUNT 2  // vertex, fragment for now
+
+typedef struct vulkan_buffer {
+  vk::Buffer handle;
+  vk::DeviceMemory memory;
+} vulkan_buffer;
 
 typedef struct vulkan_object_shader {
   // vertex, fragment
@@ -72,28 +178,48 @@ typedef struct vulkan_object_shader {
 
 } vulkan_object_shader;
 
+typedef struct vulkan_texture {
+  vulkan_image image;
+  vk::Sampler sampler;
+} vulkan_texture;
+
 typedef struct backend_context {
-  VkInstance instance;
+  vk::UniqueInstance instance;
   vulkan_device device;
   GLFWwindow* window;
-  VkSurfaceKHR surface;
+  vk::SurfaceKHR surface;
   vulkan_pipeline pipeline;
   vulkan_renderpass main_renderpass;
-  VkCommandPool command_pool;
-  VkCommandBuffer command_buffer;
+  vk::CommandPool command_pool;
+  std::vector<vk::CommandBuffer> command_buffer;
+  vulkan_image depth_image;
+  vulkan_buffer vert_buff;
+  vulkan_buffer index_buff;
 #ifndef NDEBUG
-  VkDebugUtilsMessengerEXT debug_messenger;
+  vk::DebugUtilsMessengerEXT debug_messenger;
 #endif
   vulkan_swapchain swapchain;
-  VkSemaphore image_available_semaphore;
-  VkSemaphore render_finished_semaphore;
-  VkFence in_flight_fence;
+  std::vector<vk::Semaphore> image_available_semaphore;
+  std::vector<vk::Semaphore> render_finished_semaphore;
+  std::vector<vk::Fence> in_flight_fence;
+  uint32_t current_frame;
+  vulkan_object_shader object_shader;
+  vk::DescriptorPool descriptor_pool;
+  std::vector<vk::DescriptorSet> descriptor_sets;
+  std::vector<vulkan_buffer> uniform_buffers;
+  std::vector<void*> uniform_buffer_memory;
+  vulkan_texture default_texture;
 } backend_context;
 
-#define VK_CHECK(expr)               \
-  do {                               \
-    VkResult result = (expr);        \
-    OE_ASSERT(result == VK_SUCCESS); \
+#define VK_CHECK(expr)                         \
+  do {                                         \
+    vk::Result result = (expr);                \
+    OE_ASSERT(result == vk::Result::eSuccess); \
+  } while (0)
+
+#define VK_OBJECT_CREATE_CHECK(object) \
+  do {                                 \
+    OE_ASSERT(object != nullptr);      \
   } while (0)
 
 #endif

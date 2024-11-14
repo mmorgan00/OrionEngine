@@ -8,8 +8,10 @@
 
 #include "engine/renderer_types.inl"
 
-vulkan_object_shader vulkan_shader_create(backend_context* context,
-                                          vulkan_renderpass* renderpass,
-                                          const std::string vert_path,
-                                          const std::string frag_path);
+void vulkan_shader_create(backend_context* context,
+                          vulkan_renderpass* renderpass,
+                          const std::string vert_path,
+                          const std::string frag_path);
+
+void vulkan_shader_destroy(backend_context* context);
 #endif

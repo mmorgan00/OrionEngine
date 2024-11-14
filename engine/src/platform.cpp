@@ -6,11 +6,28 @@
 
 #include <stdlib.h>
 
+#include <fstream>
 #include <vector>
 
 #include "engine/logger.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "engine/resources/stb_image.h"
+
 static platform_state *plat_state;
+
+stbi_uc *platform_open_image(const std::string filename, int *out_image_height,
+                             int *out_image_width, int *out_channels) {
+  const std::string image_dir = "../bin/assets/";
+  std::string full_path = image_dir + filename;
+  stbi_uc *pixels = stbi_load(full_path.c_str(), out_image_width,
+                              out_image_height, out_channels, STBI_rgb_alpha);
+
+  if (!pixels) {
+    throw std::runtime_error("failed to load image file!");
+  }
+  return pixels;
+}
 
 platform_state *platform_initialize() {
   plat_state = (platform_state *)malloc(sizeof(platform_state));
@@ -22,7 +39,7 @@ platform_state *platform_initialize() {
   };
 
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+  glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
   GLFWmonitor *primary = glfwGetPrimaryMonitor();
   const GLFWvidmode *mode = glfwGetVideoMode(primary);
@@ -54,9 +71,7 @@ platform_state *platform_initialize() {
  * platform state uses
  */
 void platform_shutdown() {
-  glfwDestroyWindow(plat_state->window);
-
-  glfwTerminate();
+  // TODO: Add platform related things later
 }
 
 /**

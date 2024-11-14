@@ -5,7 +5,7 @@
 
 void vulkan_pipeline_create(backend_context* context,
                             vulkan_renderpass* renderpass,
-                            VkShaderModule vert_shader,
-                            VkShaderModule frag_shader,
+                            vk::ShaderModule vert_shader,
+                            vk::ShaderModule frag_shader,
                             vulkan_pipeline* out_pipeline);
 #endif
